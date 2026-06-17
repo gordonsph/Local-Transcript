@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Local Transcript</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  </head>
+  <body>
+    <main class="shell">
+      <section class="workspace" aria-labelledby="title">
+        <header class="topbar">
+          <div>
+            <h1 id="title">Local Transcript</h1>
+            <p class="meta">whisper.cpp · large-v3 · local</p>
+          </div>
+          <div class="status-pill" id="systemStatus">{{ "Ready" if model_ready else "Model pending" }}</div>
+        </header>
+
+        <form id="uploadForm" class="panel">
+          <label class="dropzone" id="dropzone">
+            <input id="audio" name="audio" type="file" accept="audio/*,video/mp4,video/quicktime,.m4a,.mpeg,.mp4,.mov,.webm" required>
+            <span class="drop-title" id="fileName">Choose audio</span>
+            <span class="drop-sub">m4a, mp3, wav, mp4, mov</span>
+          </label>
+
+          <div class="control-grid">
+            <label>
+              <span>Language</span>
+              <select name="language" id="language">
+                {% for code, label in languages.items() %}
+                  <option value="{{ code }}" {% if code == "yue" %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </label>
+
+            <label>
+              <span>Output</span>
+              <select name="format" id="format">
+                {% for code, label in formats.items() %}
+                  <option value="{{ code }}">{{ label }}</option>
+                {% endfor %}
+              </select>
+            </label>
+
+            <label>
+              <span>Result folder</span>
+              <input name="output_location" id="outputLocation" type="text" value="{{ default_result_location }}" autocomplete="off">
+            </label>
+          </div>
+
+          <label class="terms">
+            <span>Terminology hints</span>
+            <textarea name="terminology" id="terminology" rows="3" placeholder="trust device, 3DS, saved card, safe address"></textarea>
+          </label>
+
+          <button class="primary" type="submit" id="startButton" {% if not model_ready %}disabled{% endif %}>
+            Start transcript
+          </button>
+        </form>
+
+        <section class="progress-panel" id="jobPanel" hidden>
+          <div class="progress-head">
+            <div>
+              <h2 id="jobTitle">Queued</h2>
+              <p id="jobMeta">Waiting</p>
+            </div>
+            <div class="spinner" id="spinner" aria-hidden="true"></div>
+          </div>
+          <div class="bar" aria-hidden="true"><span id="barFill"></span></div>
+          <div class="metrics" aria-live="polite">
+            <div>
+              <span>Done</span>
+              <strong id="percentDone">0%</strong>
+            </div>
+            <div>
+              <span>Remaining</span>
+              <strong id="eta">Calculating</strong>
+            </div>
+            <div>
+              <span>Elapsed</span>
+              <strong id="elapsed">0s</strong>
+            </div>
+          </div>
+          <div class="controls" id="jobControls">
+            <button type="button" class="secondary" id="pauseButton" disabled>Pause</button>
+            <button type="button" class="secondary" id="resumeButton" disabled>Continue</button>
+            <button type="button" class="danger-button" id="terminateButton" disabled>Terminate</button>
+          </div>
+          <div class="system-grid">
+            <div>
+              <span>CPU</span>
+              <strong id="cpuUsage">Waiting</strong>
+            </div>
+            <div>
+              <span>RAM</span>
+              <strong id="ramUsage">Waiting</strong>
+            </div>
+            <div>
+              <span>Load</span>
+              <strong id="loadUsage">Waiting</strong>
+            </div>
+            <div>
+              <span>GPU</span>
+              <strong id="gpuUsage">Metal ready</strong>
+            </div>
+          </div>
+          <p class="saved-path" id="savedPath"></p>
+          <pre id="log"></pre>
+          <div class="downloads" id="downloads"></div>
+        </section>
+      </section>
+    </main>
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+  </body>
+</html>

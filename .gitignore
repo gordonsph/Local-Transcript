@@ -1,0 +1,31 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Local environments
+.venv/
+venv/
+env/
+work/transcribe-venv/
+work/.local_ssh/
+
+# Generated transcription data and private audio
+outputs/
+work/transcribe_app/logs/
+work/transcribe_app/test_outputs/
+work/transcribe_app/sample_*.wav
+work/transcribe_app/test_large_v3.json
+work/run_transcription.py
+
+# whisper.cpp checkout, build output, and downloaded models are large local dependencies.
+work/whisper.cpp/
+
+# Legacy generated plist. The install scripts generate current plists from the clone path.
+work/com.siuph.local-transcript.plist
+
+# Installed skill caches
+.codex/skills/ui-ux-pro-max/scripts/__pycache__/

@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-06-17T15:20:00+08:00",
+  "title": "Design System: Local Transcript",
+  "extensions": {
+    "colorMeta": {
+      "accent": {
+        "role": "primary",
+        "displayName": "Operational Teal",
+        "canonical": "#0b7f68",
+        "tonalRamp": ["#f0faf7", "#0b7f68", "#075f4e"]
+      },
+      "neutral": {
+        "role": "neutral",
+        "displayName": "Cool Utility Neutral",
+        "canonical": "#f6f7f8",
+        "tonalRamp": ["#ffffff", "#f6f7f8", "#d7dde5", "#667085", "#111827"]
+      },
+      "danger": {
+        "role": "danger",
+        "displayName": "Terminate Red",
+        "canonical": "#b42318",
+        "tonalRamp": ["#fff4f2", "#f2b8b5", "#b42318"]
+      }
+    },
+    "typographyMeta": {
+      "title": {
+        "displayName": "App Title",
+        "purpose": "The single application title. Do not use hero-scale display type."
+      },
+      "body": {
+        "displayName": "Operational Body",
+        "purpose": "Forms, labels, metadata, and status text for repeated task use."
+      },
+      "log": {
+        "displayName": "Process Log",
+        "purpose": "Bounded monospace terminal-style process output."
+      }
+    },
+    "motion": {
+      "durationFast": "160ms",
+      "durationBase": "220ms",
+      "easing": "cubic-bezier(0.22, 1, 0.36, 1)",
+      "rules": [
+        "Animate opacity and transform for UI feedback.",
+        "Do not animate width, height, padding, or margin.",
+        "Respect prefers-reduced-motion."
+      ]
+    },
+    "breakpoints": {
+      "mobile": "680px"
+    },
+    "componentRules": {
+      "progress": "Use transform: scaleX() for the fill. Keep progress text separate from the visual bar.",
+      "jobControls": "Pause is enabled only while running. Continue is enabled only while paused. Terminate is disabled after cancelling, done, failed, or cancelled states.",
+      "systemMetrics": "Show measured CPU, RAM, and load. Show GPU as Metal active, not numeric GPU percent."
+    }
+  }
+}
