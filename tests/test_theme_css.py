@@ -20,34 +20,24 @@ class ThemeCssTests(unittest.TestCase):
             css,
             re.S,
         )
-        self.assertIsNotNone(dark_match)
+        self.assertIsNotNone(dark_match, "dark theme :root block must exist")
 
+        # Core Liquid Glass tokens that must be redefined for the dark theme.
         dark_body = dark_match.group("body")
-        for token in (
-            "--canvas",
-            "--surface",
-            "--surface-2",
-            "--inset",
-            "--ink",
-            "--muted",
-            "--line",
-            "--disabled-bg",
-            "--disabled-ink",
-        ):
-            self.assertRegex(dark_body, rf"{re.escape(token)}\s*:")
+        for token in ("--accent", "--label", "--sidebar", "--content", "--inset", "--sep"):
+            self.assertRegex(dark_body, rf"{re.escape(token)}\s*:", f"{token} missing from dark theme")
 
-    def test_primary_disabled_state_uses_dedicated_theme_tokens(self):
+    def test_hidden_attribute_is_globally_enforced(self):
+        # display: grid/flex on .move-banner/.readout-grid/etc. must not defeat
+        # the hidden attribute that gates the banner, setup stats, and monitor.
         css = CSS.read_text(encoding="utf-8")
+        self.assertRegex(css, r"\[hidden\]\s*{\s*display:\s*none\s*!important;\s*}")
 
-        primary_disabled = re.search(r"\.primary:disabled\s*{(?P<body>.*?)\n}", css, re.S)
-        self.assertIsNotNone(primary_disabled)
-        self.assertIn("background: var(--disabled-bg);", primary_disabled.group("body"))
-        self.assertIn("color: var(--disabled-ink);", primary_disabled.group("body"))
-
-        record_disabled = re.search(r"\.record-button:disabled\s*{(?P<body>.*?)\n}", css, re.S)
-        self.assertIsNotNone(record_disabled)
-        self.assertIn("background: var(--disabled-bg);", record_disabled.group("body"))
-        self.assertIn("color: var(--disabled-ink);", record_disabled.group("body"))
+    def test_primary_disabled_state_is_styled(self):
+        css = CSS.read_text(encoding="utf-8")
+        primary_disabled = re.search(r"\.primary:disabled\s*{(?P<body>.*?)}", css, re.S)
+        self.assertIsNotNone(primary_disabled, ".primary:disabled must be styled")
+        self.assertIn("cursor: not-allowed", primary_disabled.group("body"))
 
     def test_template_declares_light_and_dark_theme_colors(self):
         html = TEMPLATE.read_text(encoding="utf-8")

@@ -1,206 +1,151 @@
 ---
 name: Local Transcript
-description: A quiet local utility for long-running high-accuracy transcription jobs.
+description: A native macOS Liquid Glass utility for high-accuracy, on-device transcription.
+register: product
 colors:
-  canvas: "#e7eaee"
-  surface: "#ffffff"
-  surface-2: "#f4f6f8"
-  inset: "#f7f9fb"
-  ink: "#0e1726"
-  muted: "#5b6677"
-  line: "#dde2ea"
   accent: "#0b7f68"
-  accent-deep: "#075f4e"
-  accent-soft: "#e4f3ee"
-  danger: "#b42318"
-  focus: "#2563eb"
+  accent-deep: "#096153"
+  on-accent: "#ffffff"
+  label: "rgba(0,0,0,0.88)"
+  label-2: "rgba(0,0,0,0.56)"
+  label-3: "rgba(0,0,0,0.40)"
+  sidebar: "rgba(246,247,249,0.55)"
+  content: "rgba(255,255,255,0.78)"
+  card: "#ffffff"
+  inset: "rgba(120,120,128,0.08)"
+  sep: "rgba(0,0,0,0.10)"
+  focus: "#2f6bff"
+  danger: "#c0362c"
 typography:
-  title:
-    fontFamily: "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, SF Pro Text, Segoe UI, sans-serif"
-    fontSize: "22px"
-    fontWeight: 680
-    lineHeight: 1.2
-    letterSpacing: "-0.012em"
-  section-title:
-    fontFamily: "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, SF Pro Text, Segoe UI, sans-serif"
-    fontSize: "16px"
-    fontWeight: 660
-    lineHeight: 1.25
-    letterSpacing: "-0.006em"
-  body:
-    fontFamily: "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, SF Pro Text, Segoe UI, sans-serif"
-    fontSize: "15px"
-    fontWeight: 400
-    lineHeight: 1.5
-    letterSpacing: "0"
-  label:
-    fontFamily: "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, SF Pro Text, Segoe UI, sans-serif"
-    fontSize: "11.5px"
-    fontWeight: 640
-    lineHeight: 1.35
-    letterSpacing: "0.04em"
-    textTransform: "uppercase"
-  mono:
-    fontFamily: "ui-monospace, SF Mono, SFMono-Regular, Menlo, Consolas, monospace"
-rounded:
-  sm: "8px"
-  md: "12px"
-  lg: "16px"
-  pill: "999px"
-spacing:
-  xs: "4px"
-  sm: "8px"
-  md: "16px"
-  lg: "24px"
-components:
-  button-primary:
-    backgroundColor: "{colors.accent}"
-    textColor: "{colors.surface}"
-    rounded: "{rounded.md}"
-    padding: "0 16px"
-    height: "48px"
-  input:
-    backgroundColor: "{colors.surface}"
-    textColor: "{colors.ink}"
-    rounded: "{rounded.md}"
-    height: "44px"
+  family: "-apple-system, BlinkMacSystemFont, SF Pro Text, SF Pro Display, system-ui, sans-serif"
+  mono: "ui-monospace, SF Mono, Menlo, monospace"
+  title: { fontSize: "14px", fontWeight: 600 }
+  toolbar-title: { fontSize: "15px", fontWeight: 600 }
+  body: { fontSize: "14px", fontWeight: 400 }
+  group-label: { fontSize: "12px", fontWeight: 600 }
+  readout-value: { fontSize: "17px", fontWeight: 600, tabularNums: true }
+rounded: { window: "13px", card: "11px", row: "8px", pill: "980px" }
 ---
 
 # Design System: Local Transcript
 
 ## 1. Overview
 
-**Creative North Star: "The Local Control Room"**
+**Creative North Star: a first-party macOS "Liquid Glass" app (macOS Tahoe 26).**
 
-Local Transcript is a focused product interface for supervising long-running transcription work. It should feel calm, readable, and operational rather than promotional. The visual language uses a light neutral work surface, one restrained teal accent, strong text contrast, and compact information panels.
+Local Transcript should be indistinguishable from something Apple shipped: real
+system materials (vibrancy), a translucent sidebar over a legible content pane,
+grouped inset rows, SF Pro, hairline separators, tabular numerals, and the system
+control vocabulary. It is a **repeat-use pro tool** for supervising long on-device
+transcriptions — calm, legible, and fast on the 20th use, not just the 1st.
 
-The interface rejects decorative AI-product tropes: no purple gradients, no glass cards, no hero storytelling, no nested-card composition, and no oversized marketing metrics. The job is to help the user start, monitor, pause, resume, stop, and collect transcription work.
+> This direction (finalized via a 6-variation, 5-judge design tournament) **supersedes
+> the earlier flat "control-room" look.** Glass is now the language — done the Apple
+> way (restraint, correct material hierarchy), never as cheap glassmorphism.
 
-**Key Characteristics:**
-- Product UI, not a landing page.
-- Light, quiet, high-contrast surface (with a matching dark theme that follows `prefers-color-scheme`).
-- System font stack for fast loading and native feel (SF Pro on macOS via `system-ui`).
-- One accent color reserved for primary action, current state, and progress — never for focus (focus is blue, see the One Accent Rule).
-- Stable dimensions for controls, metrics, and log output; numeric readouts use tabular numerals.
+**Key characteristics**
+- Two-tier material: translucent **chrome** (sidebar/toolbar/action bar) over a
+  near-opaque **content** pane where all body text lives.
+- Real vibrancy from the OS, not a CSS gradient (see §4).
+- One accent — the brand **teal** — applied HIG-disciplined.
+- Progressive disclosure + clear IA: one obvious primary action per state.
 
-## 2. Colors
+## 2. The two named rules
 
-The palette is restrained: cool neutral surfaces with a single deep teal accent for action and progress.
+**The Material Hierarchy Rule.** Translucency is for chrome, opacity is for content.
+The sidebar (`--sidebar`, ~0.55 alpha) and bars are vibrant glass; the content pane
+(`--content`, ~0.78) and every card/field is near-opaque. **Body text only ever sits
+on the near-opaque content tier or on solid cards/fields — never directly on the
+translucent chrome or the desktop behind it.**
 
-### Primary
-- **Operational Teal** (`#0b7f68`): Primary action, progress fill, active dropzone state, and selected operational emphasis.
-- **Deep Operational Teal** (`#075f4e`): Primary hover state and stronger active affordance.
+**The Legibility-First Rule (the #1 Liquid Glass risk).** All body text, labels, and
+readouts must meet **WCAG AA (≥4.5:1)**. Because content sits on the opaque tier this
+is structural, not luck. The `--label` ramp (0.88 / 0.56 / 0.40) is tuned for the
+content pane. The teal selected-row fill carries white text and must stay dark enough
+to clear 4.5:1 (`#0b7f68` ≈ 4.95:1 — do not lighten it for selection). Focus is a
+distinct **blue** ring (`--focus`), never the teal accent (the One-Accent rule).
 
-### Neutral — Layered
+## 3. Colors
 
-Depth comes from three tonal layers (the implementation of the Flat-By-Default Rule), not shadows:
+Restrained: neutral glass tiers + a single deep-teal accent for action, selection,
+and progress. Teal — not system blue — because it is the brand identity (and matches
+the app icon); native feel comes from materials and layout, not the hue.
 
-- **Canvas** (`#e7eaee`): Page background; cool and non-tinted, sits a step below the surface so panels read as lifted without a shadow.
-- **Surface White** (`#ffffff`): Forms, progress panels, controls, download links.
-- **Second Neutral** (`#f4f6f8`): Toolbars/rails and quiet button fills.
-- **Inset** (`#f7f9fb`): Recessed instrument surfaces — dropzone, waveform, readout cells, the progress track. This is the "gauge" layer.
-- **Ink** (`#0e1726`): Primary text. **Label Ink** (`#4a5667`): instrument/field captions.
-- **Muted Slate** (`#5b6677`): Secondary metadata.
-- **Divider Slate** (`#dde2ea`, strong `#c6cedb`): Borders, separators, and the hairlines between readout cells.
+- **Operational Teal** `#0b7f68` / **Deep** `#096153`: primary action, active nav row,
+  progress fill, focus tint, brand mark. Reserved — never decoration.
+- **Label ramp** `rgba(0,0,0, .88 / .56 / .40)` (and the inverse in dark): primary,
+  secondary, tertiary/icon text on the content tier.
+- **Glass tiers**: `--sidebar` (translucent chrome), `--content` (near-opaque),
+  `--card` (solid rows), `--inset` (quiet fills), `--toolbar` (translucent bars).
+- **Focus Blue** `#2f6bff` (light) / `#7aa7ff` (dark): keyboard focus ring + halo.
+- **Danger** `#c0362c`: Terminate, failures, and the move-to-Applications banner only.
+- A full dark theme mirrors every token under `prefers-color-scheme: dark`.
 
-(The dark theme mirrors these as canvas `#0b0e0d` → surface `#141a18` → inset `#101714`, with a brighter teal `#2fd1aa`.)
+## 4. Material & elevation (real vibrancy)
 
-### Tertiary
-- **Danger Red** (`#b42318`): Terminate action and failed status only.
-- **Focus Blue** (`#2563eb` light / `#7aa7ff` dark): Keyboard focus outline. Deliberately a different hue from teal so a focus ring is never mistaken for the active/selected accent state. Replaces the earlier `#8eb8ff`, which was too low-contrast to serve as a visible indicator.
+The pywebview shell creates the window with `vibrancy=True` + `transparent=True`, so
+macOS puts an **NSVisualEffectView** behind a transparent webview. On load the shell
+adds `body.vibrancy`, which drops the CSS faux-desktop gradient and lets the real
+system material (the user's desktop/windows, blurred) show through the chrome. The
+faux-desktop gradient remains as the browser-preview / non-vibrancy fallback.
 
-### Named Rules
-
-**The One Accent Rule.** Teal is used for the one current action or current job state. It should not become decoration, and it is **not** used for focus — focus is blue.
-
-**The No Black Box Rule.** If the model is running, the UI must show visible state: progress, elapsed time, remaining estimate, save path, and system pressure.
-
-## 3. Typography
-
-**Display Font:** System sans-serif stack.
-**Body Font:** System sans-serif stack.
-**Label/Mono Font:** System sans-serif stack for UI, system monospace for logs.
-
-**Character:** Native, direct, and functional. Typography should support scanning and repeated use rather than brand expression.
-
-### Hierarchy
-- **Title** (680, 22px, 1.2, -0.012em): App title only.
-- **Section Title** (660, 16px, 1.25): Job status and compact panel headings.
-- **Body** (400, 15px, 1.5): Form text, metadata, status text, and readable UI copy.
-- **Field Label** (640, 11.5px, uppercase, +0.04em): Form field labels (Language, Output, …).
-- **Instrument Label** (640, 10.5px, uppercase, +0.07em): Captions inside readout cells (DONE, CPU, …).
-
-### Named Rules
-
-**The Product Scale Rule.** Do not use hero-scale typography in this tool. The app should feel ready for repeated operational use; the operational scale above is intentionally tighter than display type.
-
-**The Instrument Numerals Rule.** Every numeric readout — the recording timer, percent done, remaining/elapsed, and the CPU/RAM/Load cells — uses `font-variant-numeric: tabular-nums` so digits don't jitter as values update. Logs and paths use the monospace family.
-
-## 4. Elevation
-
-The system is flat by default. Depth is conveyed through tonal layering, borders, and spacing rather than shadows. This keeps the utility precise and avoids the ghost-card pattern.
-
-### Shadow Vocabulary
-
-One shadow token exists: `--shadow-pop`, used **only** on the install dialog (a true overlay). Panels, controls, inputs, buttons, and the status pill carry no shadow — they separate via the canvas→surface→inset tonal layering and 1px borders. Small concentric glows on the status/record LED dots and the keyboard focus ring are indicators, not elevation, and are allowed.
-
-### Named Rules
-
-**The Flat-By-Default Rule.** Panels and controls use borders and surface contrast. Shadows are reserved for true overlays (currently just the install dialog).
+Depth is conveyed by the material tiers, hairline `--sep` borders, and `backdrop-filter`
+blur — **not** by heavy drop shadows. Only true overlays (the install dialog) carry a
+shadow.
 
 ## 5. Components
 
-### Buttons
-- **Shape:** 8px radius.
-- **Primary:** **Solid** Operational Teal (no gradient), white text, 50px height, full-width in the upload form.
-- **Hover / Active:** Teal deepens on hover; 1px downward translate on `:active`. No shadow.
-- **Secondary:** Surface white, slate border, ink text, 42px height (44px on mobile touch).
-- **Danger:** Pale red background, red border, red text. Use only for termination or destructive actions.
-- **Focus:** blue ring (2px outline + offset + soft halo), never teal.
+- **Sidebar nav** (`.source-tab`): icon + title + sublabel rows; the active row is a
+  filled teal pill with white text. Footer: install button, a status pill with a live
+  dot, and a persistent "Runs entirely on this Mac" privacy chip.
+- **Grouped inset card** (`.card` + `.row`): System-Settings-style rounded group with
+  hairline-separated rows (icon · label · value/control). Used for Output settings and
+  Advanced. **No nested cards.**
+- **Controls**: native `select.macsel` with a custom chevron, `.rowinput` text/textarea,
+  segmented/disclosure patterns. Every interactive control has hover/focus/active/disabled.
+- **Readout clusters** (`.readout-grid`): de-carded instrument tiles (one bordered
+  container, 1px hairline gaps) with uppercase micro-labels over tabular values — used
+  for the monitor's metrics and the download stats.
+- **Job monitor**: a large tabular `%` headline, teal progress bar, Remaining/Elapsed,
+  a CPU/RAM/Load/GPU(Metal) cluster, pause/continue/terminate, a dark mono live log,
+  and result download links.
+- **First-run download**: a designed moment — icon, reassurance copy ("runs entirely on
+  your Mac… one-time 2.9 GB… offline forever"), checksum/on-device metatags, progress +
+  speed/ETA, and a single teal CTA. Gated by `model_ready`; only shown until the model
+  is installed.
+- **Motion**: 120–250 ms, ease-out. Conveys state, not spectacle. `prefers-reduced-motion`
+  collapses all of it.
 
-### Cards / Containers
-- **Corner Style:** 16px panels, 12px inner clusters, 8px controls.
-- **Background:** Surface White on Canvas.
-- **Shadow Strategy:** No shadows (overlay dialog excepted).
-- **Border:** Divider Slate 1px.
-- **Internal Padding:** ~22px for main panels, 12-14px for readout cells.
-- **No nested cards:** see the readout-cluster pattern below — grouped data is one bordered container divided by hairlines, never a grid of individually-bordered boxes.
+## 6. Information architecture & disclosure
 
-### Readout Clusters (de-carded instrument groups)
+- **Sidebar = navigation** (Source: File / URL / Live), **content = the task**. Only the
+  selected source's controls render.
+- **Reveal as needed**: Advanced settings collapsed by default; the job monitor appears
+  only while a job runs; the model-download panel only on first run; the
+  move-to-Applications banner only when translocated.
+- **One primary action per state** in the action bar (Start transcript / Download model).
+- The `hidden` attribute is the gate for every conditional surface and must always win
+  (`[hidden] { display: none !important }`) over `display: grid/flex`.
 
-Grouped operational data — advanced settings, progress metrics, system metrics — renders as a **single** bordered, rounded container whose cells are separated by 1px hairlines (cells sit on the divider color with a 1px gap; each cell fills with the inset tone). This reads as one instrument cluster and satisfies the no-nested-cards rule. Each cell is an uppercase Instrument Label over a tabular value.
+## 7. Do's and Don'ts
 
-### Icons
+**Do**
+- Keep body text on the opaque content tier or solid cards; verify ≥4.5:1.
+- Reserve teal for action/selection/progress; use the blue ring for focus.
+- Prefer native control vocabulary and grouped inset rows.
+- Preserve the JS hook contract (ids + `.source-tab`/`.source-panel`/`.dropzone`/
+  `.waveform`/`.bar`/`.readout`/`.spinner`) when restyling.
 
-Inline stroke SVG (Lucide-style, 1.75 stroke, `currentColor`) for source selectors and affordances. **No emoji as icons.** Icons inherit muted ink at rest and the accent when their control is active.
+**Don't**
+- Put text on the translucent chrome or directly over the desktop.
+- Use cheap glassmorphism tropes: chromatic aberration, iridescent gradients,
+  decorative blur, or low-contrast "frosted" text.
+- Add nested cards, or surface every control at once.
+- Switch the accent to system blue, or use teal for focus.
+- Claim a measured GPU percent without a real source; keep the on-device promise honest.
 
-### Inputs / Fields
-- **Style:** Surface white, slate border, 8px radius, 44px height for text/select controls; selects use a custom chevron.
-- **Focus:** 2px blue outline + 2px offset + soft halo.
-- **Text Handling:** Long filenames and paths must wrap with `overflow-wrap: anywhere`.
+## 8. Fixed product contract
 
-### Progress And Metrics
-- **Progress Bar:** Teal fill on an inset track with a 1px border. Animate with transform, not width.
-- **Metrics:** Done, remaining, elapsed, CPU, RAM, load, and GPU use a fixed readout cluster (above) to avoid layout shifts; values are tabular.
-- **Logs:** Dark monospace area with bounded height and scroll.
-- **The monitor panel is gated by the `hidden` attribute** until a job starts; any `display` set on it must be paired with a `[hidden]` guard.
-
-### Source Workspace
-
-Use a compact source rail inspired by macOS Voice Memos: File, URL, and Live act as source selectors, while the active detail pane shows the current source controls. Live recording should use a timer and waveform-like strip to make recording state legible without decorative motion. Keep the app single-screen unless a future workflow genuinely needs another route.
-
-## 6. Do's and Don'ts
-
-### Do:
-- **Do** keep source selection, file/URL/live recording inputs, settings, progress, controls, metrics, paths, logs, and downloads on one task-focused screen.
-- **Do** use the teal accent for primary action, progress, and focus-related emphasis only.
-- **Do** preserve native form controls unless a custom control solves a real workflow problem.
-- **Do** keep text wrapping safe for long filenames, folders, and transcript terms.
-- **Do** document any new control, output format, model choice, or quality setting in `CONTEXT.md` and the relevant local `SKILL.md`.
-
-### Don't:
-- **Don't** use purple gradients, gradient text, glassmorphism, decorative blur, decorative illustration, or hero-metric layouts.
-- **Don't** put cards inside cards.
-- **Don't** add a marketing landing page before the actual upload workflow.
-- **Don't** expose model quality knobs unless the user asks; day-1 quality settings are fixed.
-- **Don't** claim numeric GPU percent unless a real measured source is added.
+The engine is **whisper.cpp + large-v3**, fully on-device. The model is **not bundled**;
+the app downloads it on first run into Application Support (resumable, checksum-verified).
+Any redesign must preserve this flow and the install → download → transcribe journey.

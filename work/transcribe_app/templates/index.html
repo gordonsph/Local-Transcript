@@ -12,97 +12,82 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
   </head>
   <body>
-    <main class="shell">
-      <section class="workspace" aria-labelledby="title">
-        <header class="topbar">
+    <main class="desk">
+      <form id="uploadForm" class="window" aria-labelledby="title">
+        <input type="hidden" name="source_type" id="sourceType" value="file">
+
+        <!-- ── Translucent sidebar (vibrancy chrome) ── -->
+        <aside class="sidebar" aria-label="Source">
           <div class="brand">
             <span class="brand-mark" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 3v7"></path>
-                <path d="M8 6.5a4 4 0 0 1 8 0V10a4 4 0 0 1-8 0z" fill="currentColor" stroke="none" opacity="0.16"></path>
-                <path d="M8 6.5a4 4 0 0 1 8 0V10a4 4 0 0 1-8 0z"></path>
-                <path d="M5 11a7 7 0 0 0 14 0"></path>
-                <path d="M12 18v3"></path>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                <path d="M12 19v3"></path>
               </svg>
             </span>
-            <div>
+            <div class="brand-text">
               <h1 id="title">Local Transcript</h1>
-              <p class="meta">whisper.cpp <span class="dot-sep">·</span> large-v3 <span class="dot-sep">·</span> on-device</p>
+              <p class="meta">On-device · whisper.cpp</p>
             </div>
           </div>
-          <div class="topbar-actions">
-            <button type="button" class="secondary install-button" id="installButton">Install app</button>
+
+          <p class="side-section">Source</p>
+          <nav class="source-rail" aria-label="Transcription source">
+            <button type="button" class="source-tab active" data-source="file" aria-pressed="true">
+              <span class="tab-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5"></path></svg>
+              </span>
+              <span class="tab-text"><span class="tab-title">File</span><small>Audio or video</small></span>
+            </button>
+            <button type="button" class="source-tab" data-source="url" aria-pressed="false">
+              <span class="tab-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17H7A5 5 0 0 1 7 7h2"></path><path d="M15 7h2a5 5 0 0 1 0 10h-2"></path><path d="M8 12h8"></path></svg>
+              </span>
+              <span class="tab-text"><span class="tab-title">URL</span><small>Direct media link</small></span>
+            </button>
+            <button type="button" class="source-tab" data-source="live" aria-pressed="false">
+              <span class="tab-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><path d="M12 19v3"></path></svg>
+              </span>
+              <span class="tab-text"><span class="tab-title">Live</span><small>Microphone recording</small></span>
+            </button>
+          </nav>
+
+          <div class="side-foot">
+            <button type="button" class="install-button" id="installButton">Install app</button>
             <div class="status-pill" id="statusPill">
               <span class="status-dot" aria-hidden="true"></span>
               <span id="systemStatus">{{ "Ready" if model_ready else "Model pending" }}</span>
             </div>
+            <p class="privacy-chip">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+              Runs entirely on this Mac
+            </p>
           </div>
-        </header>
+        </aside>
 
-        <div class="move-banner" id="moveBanner" role="alert" hidden>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4"></path><path d="M12 17h.01"></path><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"></path></svg>
-          <span>Local Transcript is running from a temporary location. Move it to your <strong>Applications</strong> folder and reopen — it can’t run from the Downloads folder.</span>
-        </div>
+        <!-- ── Content (near-opaque, legible) ── -->
+        <div class="main">
+          <div class="toolbar">
+            <h2 class="toolbar-title" id="toolbarTitle">New transcript</h2>
+            <div class="tb-status"><span class="status-dot" aria-hidden="true"></span>{{ "Ready" if model_ready else "Setup" }}</div>
+          </div>
 
-        <form id="uploadForm" class="panel source-workspace">
-          <input type="hidden" name="source_type" id="sourceType" value="file">
+          <div class="scroll">
+            <div class="move-banner" id="moveBanner" role="alert" hidden>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4"></path><path d="M12 17h.01"></path><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"></path></svg>
+              <span>Local Transcript is running from a temporary location. Move it to your <strong>Applications</strong> folder and reopen — it can’t run from the Downloads folder.</span>
+            </div>
 
-          <div class="source-layout">
-            <aside class="source-rail" aria-label="Transcription source">
-              <button type="button" class="source-tab active" data-source="file" aria-pressed="true">
-                <span class="tab-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path>
-                    <path d="M14 3v5h5"></path>
-                    <path d="M9 13h6M9 17h4"></path>
-                  </svg>
-                </span>
-                <span class="tab-text">
-                  <span class="tab-title">File</span>
-                  <small>Audio or video</small>
-                </span>
-              </button>
-              <button type="button" class="source-tab" data-source="url" aria-pressed="false">
-                <span class="tab-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M9 17H7A5 5 0 0 1 7 7h2"></path>
-                    <path d="M15 7h2a5 5 0 0 1 0 10h-2"></path>
-                    <path d="M8 12h8"></path>
-                  </svg>
-                </span>
-                <span class="tab-text">
-                  <span class="tab-title">URL</span>
-                  <small>Direct media link</small>
-                </span>
-              </button>
-              <button type="button" class="source-tab" data-source="live" aria-pressed="false">
-                <span class="tab-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="9" y="2" width="6" height="12" rx="3"></rect>
-                    <path d="M5 10a7 7 0 0 0 14 0"></path>
-                    <path d="M12 17v4"></path>
-                  </svg>
-                </span>
-                <span class="tab-text">
-                  <span class="tab-title">Live</span>
-                  <small>Microphone recording</small>
-                </span>
-              </button>
-              <p class="source-note">Sources are saved locally with each job.</p>
-            </aside>
-
+            <!-- Source detail -->
+            <p class="group-label">Source</p>
             <div class="source-detail">
               <section class="source-panel" id="filePanel" data-panel="file">
                 <label class="dropzone" id="dropzone">
                   <input id="audio" name="audio" type="file" accept="audio/*,video/mp4,video/quicktime,.m4a,.mpeg,.mp4,.mov,.webm">
                   <span class="drop-icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M12 16V4"></path>
-                      <path d="m7 9 5-5 5 5"></path>
-                      <path d="M20 16.5A4.5 4.5 0 0 0 17 8.2"></path>
-                      <path d="M5 20h14a2 2 0 0 0 2-2"></path>
-                      <path d="M5 20a2 2 0 0 1-2-2 4.5 4.5 0 0 1 3.2-6.7"></path>
-                    </svg>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4"></path><path d="m7 9 5-5 5 5"></path><path d="M20 16.5A4.5 4.5 0 0 0 17 8.2"></path><path d="M5 20h14a2 2 0 0 0 2-2"></path><path d="M5 20a2 2 0 0 1-2-2 4.5 4.5 0 0 1 3.2-6.7"></path></svg>
                   </span>
                   <span class="drop-title" id="fileName">Choose audio</span>
                   <span class="drop-sub">Drag a file here, or click to browse <span class="drop-formats">m4a · mp3 · wav · mp4 · mov · webm</span></span>
@@ -139,155 +124,138 @@
                 <p class="source-state" id="recordingStatus">Ready when you are.</p>
               </section>
             </div>
+
+            <!-- Output settings — grouped inset rows -->
+            <p class="group-label">Output</p>
+            <div class="card">
+              <label class="row" for="language">
+                <svg class="ricon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 8l6 6"></path><path d="M4 14l6-6 2-3"></path><path d="M2 5h12"></path><path d="M7 2h1"></path><path d="m22 22-5-10-5 10"></path><path d="M14 18h6"></path></svg>
+                <span class="rlabel">Language</span>
+                <span class="rvalue">
+                  <select class="macsel" name="language" id="language">
+                    {% for code, label in languages.items() %}
+                      <option value="{{ code }}" {% if code == "yue" %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                  </select>
+                </span>
+              </label>
+              <label class="row" for="format">
+                <svg class="ricon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5"></path></svg>
+                <span class="rlabel">Output format</span>
+                <span class="rvalue">
+                  <select class="macsel" name="format" id="format">
+                    {% for code, label in formats.items() %}
+                      <option value="{{ code }}">{{ label }}</option>
+                    {% endfor %}
+                  </select>
+                </span>
+              </label>
+              <label class="row" for="outputLocation">
+                <svg class="ricon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                <span class="rlabel">Result folder</span>
+                <span class="rvalue rvalue-grow">
+                  <input class="rowinput" name="output_location" id="outputLocation" type="text" value="{{ default_result_location }}" autocomplete="off">
+                </span>
+              </label>
+              <label class="row row-stack" for="terminology">
+                <svg class="ricon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h10M7 12h10M7 17h6"></path></svg>
+                <span class="rlabel">Terminology hints<small>Names, jargon &amp; acronyms to bias decoding</small></span>
+                <span class="rvalue rvalue-grow">
+                  <textarea class="rowinput" name="terminology" id="terminology" rows="2" placeholder="trust device, 3DS, saved card, safe address"></textarea>
+                </span>
+              </label>
+            </div>
+
+            <details class="advanced-settings" id="advancedSettings">
+              <summary>
+                <span class="summary-label">
+                  <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 6 15 12 9 18"></polyline></svg>
+                  Advanced settings
+                </span>
+                <strong>whisper.cpp · large-v3</strong>
+              </summary>
+              <div class="card advanced-grid">
+                <div class="row"><span class="rlabel">Engine</span><span class="rvalue">whisper.cpp</span></div>
+                <div class="row"><span class="rlabel">Model</span><span class="rvalue">large-v3 · 2.9 GB</span></div>
+                <div class="row"><span class="rlabel">Task</span><span class="rvalue">Transcribe</span></div>
+                <div class="row"><span class="rlabel">Voice activity detection</span><span class="rvalue">{{ "Silero enabled" if vad_ready else "Unavailable" }}</span></div>
+                <div class="row"><span class="rlabel">Decoding</span><span class="rvalue">beam 5 · best-of 5</span></div>
+                <div class="row"><span class="rlabel">Translation</span><span class="rvalue">Off</span></div>
+              </div>
+            </details>
+
+            {% if not model_ready %}
+            <!-- First-run model download -->
+            <section class="setup-panel" id="setupPanel">
+              <div class="setup-head">
+                <span class="setup-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                </span>
+                <div class="setup-copy">
+                  <strong>Download the transcription model</strong>
+                  <span id="setupMessage">Local Transcript runs Whisper large-v3 entirely on your Mac. The model is a one-time 2.9 GB download — after this, everything works offline, forever.</span>
+                </div>
+              </div>
+              <div class="bar" id="setupBar" aria-hidden="true" hidden><span id="setupBarFill"></span></div>
+              <div class="setup-stats readout-grid" id="setupStats" aria-live="polite" hidden>
+                <div class="readout"><span>Progress</span><strong id="setupPercent">0%</strong></div>
+                <div class="readout"><span>Downloaded</span><strong id="setupBytes">—</strong></div>
+                <div class="readout"><span>Speed</span><strong id="setupSpeed">—</strong></div>
+                <div class="readout"><span>Remaining</span><strong id="setupEta">—</strong></div>
+              </div>
+              <div class="setup-meta">
+                <span class="metatag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>Checksum-verified</span>
+                <span class="metatag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>Stays on device</span>
+              </div>
+              <div class="setup-actions">
+                <button type="button" class="primary" id="downloadModelButton">Download model (2.9 GB)</button>
+                <button type="button" class="secondary" id="cancelDownloadButton" hidden>Cancel</button>
+              </div>
+            </section>
+            {% endif %}
+
+            <!-- Job monitor -->
+            <section class="progress-panel" id="jobPanel" hidden>
+              <div class="progress-head">
+                <div class="progress-headline">
+                  <div class="job-pct"><strong id="percentDone">0%</strong></div>
+                  <h2 id="jobTitle">Queued</h2>
+                  <p id="jobMeta">Waiting</p>
+                </div>
+                <div class="spinner" id="spinner" aria-hidden="true"></div>
+              </div>
+              <div class="bar" aria-hidden="true"><span id="barFill"></span></div>
+              <div class="metrics readout-grid" aria-live="polite">
+                <div class="readout"><span>Remaining</span><strong id="eta">Calculating</strong></div>
+                <div class="readout"><span>Elapsed</span><strong id="elapsed">0s</strong></div>
+              </div>
+              <div class="system-grid readout-grid">
+                <div class="readout"><span>CPU</span><strong id="cpuUsage">Waiting</strong></div>
+                <div class="readout"><span>RAM</span><strong id="ramUsage">Waiting</strong></div>
+                <div class="readout"><span>Load</span><strong id="loadUsage">Waiting</strong></div>
+                <div class="readout"><span>GPU</span><strong id="gpuUsage">Metal ready</strong></div>
+              </div>
+              <div class="controls" id="jobControls">
+                <button type="button" class="secondary" id="pauseButton" disabled>Pause</button>
+                <button type="button" class="secondary" id="resumeButton" disabled>Continue</button>
+                <button type="button" class="danger-button" id="terminateButton" disabled>Terminate</button>
+              </div>
+              <p class="saved-path" id="savedPath"></p>
+              <p class="saved-path" id="sourcePath"></p>
+              <pre id="log"></pre>
+              <div class="downloads" id="downloads"></div>
+            </section>
           </div>
 
-          <div class="control-grid">
-            <label class="field">
-              <span>Language</span>
-              <select name="language" id="language">
-                {% for code, label in languages.items() %}
-                  <option value="{{ code }}" {% if code == "yue" %}selected{% endif %}>{{ label }}</option>
-                {% endfor %}
-              </select>
-            </label>
-
-            <label class="field">
-              <span>Output</span>
-              <select name="format" id="format">
-                {% for code, label in formats.items() %}
-                  <option value="{{ code }}">{{ label }}</option>
-                {% endfor %}
-              </select>
-            </label>
-
-            <label class="field">
-              <span>Result folder</span>
-              <input name="output_location" id="outputLocation" type="text" value="{{ default_result_location }}" autocomplete="off">
-            </label>
+          <!-- Primary action -->
+          <div class="actionbar">
+            <span class="hint">Nothing leaves this Mac.</span>
+            <button class="primary" type="submit" id="startButton" {% if not model_ready %}disabled{% endif %}>
+              Start transcript
+            </button>
           </div>
-
-          <label class="field terms">
-            <span>Terminology hints</span>
-            <textarea name="terminology" id="terminology" rows="3" placeholder="trust device, 3DS, saved card, safe address"></textarea>
-          </label>
-
-          <details class="advanced-settings" id="advancedSettings">
-            <summary>
-              <span class="summary-label">
-                <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"></path></svg>
-                Advanced settings
-              </span>
-              <strong>whisper.cpp · large-v3 · transcribe</strong>
-            </summary>
-            <div class="advanced-grid readout-grid">
-              <div class="readout">
-                <span>Engine</span>
-                <strong>whisper.cpp</strong>
-              </div>
-              <div class="readout">
-                <span>Model</span>
-                <strong>large-v3</strong>
-              </div>
-              <div class="readout">
-                <span>Task</span>
-                <strong>Transcribe</strong>
-              </div>
-              <div class="readout">
-                <span>VAD</span>
-                <strong>{{ "Silero enabled" if vad_ready else "Unavailable" }}</strong>
-              </div>
-              <div class="readout">
-                <span>Decoding</span>
-                <strong>beam 5 · best-of 5</strong>
-              </div>
-              <div class="readout">
-                <span>Translation</span>
-                <strong>Off</strong>
-              </div>
-            </div>
-          </details>
-
-          {% if not model_ready %}
-          <section class="setup-panel" id="setupPanel">
-            <div class="setup-head">
-              <span class="setup-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"></path><path d="m7 10 5 5 5-5"></path><path d="M5 21h14"></path></svg>
-              </span>
-              <div class="setup-copy">
-                <strong>Transcription model required</strong>
-                <span id="setupMessage">Download the large-v3 model (2.9 GB) to start transcribing. It is stored on this Mac and only downloaded once.</span>
-              </div>
-            </div>
-            <div class="bar" id="setupBar" aria-hidden="true" hidden><span id="setupBarFill"></span></div>
-            <div class="setup-stats readout-grid" id="setupStats" aria-live="polite" hidden>
-              <div class="readout"><span>Progress</span><strong id="setupPercent">0%</strong></div>
-              <div class="readout"><span>Downloaded</span><strong id="setupBytes">—</strong></div>
-              <div class="readout"><span>Speed</span><strong id="setupSpeed">—</strong></div>
-              <div class="readout"><span>Remaining</span><strong id="setupEta">—</strong></div>
-            </div>
-            <div class="setup-actions">
-              <button type="button" class="primary" id="downloadModelButton">Download model (2.9 GB)</button>
-              <button type="button" class="secondary" id="cancelDownloadButton" hidden>Cancel</button>
-            </div>
-          </section>
-          {% endif %}
-          <button class="primary" type="submit" id="startButton" {% if not model_ready %}disabled{% endif %}>
-            Start transcript
-          </button>
-        </form>
-
-        <section class="progress-panel" id="jobPanel" hidden>
-          <div class="progress-head">
-            <div class="progress-headline">
-              <h2 id="jobTitle">Queued</h2>
-              <p id="jobMeta">Waiting</p>
-            </div>
-            <div class="spinner" id="spinner" aria-hidden="true"></div>
-          </div>
-          <div class="bar" aria-hidden="true"><span id="barFill"></span></div>
-          <div class="metrics readout-grid" aria-live="polite">
-            <div class="readout">
-              <span>Done</span>
-              <strong id="percentDone">0%</strong>
-            </div>
-            <div class="readout">
-              <span>Remaining</span>
-              <strong id="eta">Calculating</strong>
-            </div>
-            <div class="readout">
-              <span>Elapsed</span>
-              <strong id="elapsed">0s</strong>
-            </div>
-          </div>
-          <div class="controls" id="jobControls">
-            <button type="button" class="secondary" id="pauseButton" disabled>Pause</button>
-            <button type="button" class="secondary" id="resumeButton" disabled>Continue</button>
-            <button type="button" class="danger-button" id="terminateButton" disabled>Terminate</button>
-          </div>
-          <div class="system-grid readout-grid">
-            <div class="readout">
-              <span>CPU</span>
-              <strong id="cpuUsage">Waiting</strong>
-            </div>
-            <div class="readout">
-              <span>RAM</span>
-              <strong id="ramUsage">Waiting</strong>
-            </div>
-            <div class="readout">
-              <span>Load</span>
-              <strong id="loadUsage">Waiting</strong>
-            </div>
-            <div class="readout">
-              <span>GPU</span>
-              <strong id="gpuUsage">Metal ready</strong>
-            </div>
-          </div>
-          <p class="saved-path" id="savedPath"></p>
-          <p class="saved-path" id="sourcePath"></p>
-          <pre id="log"></pre>
-          <div class="downloads" id="downloads"></div>
-        </section>
-      </section>
+        </div>
+      </form>
     </main>
 
     <dialog class="install-dialog" id="installDialog">

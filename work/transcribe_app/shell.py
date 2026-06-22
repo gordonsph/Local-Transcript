@@ -157,14 +157,28 @@ def main() -> None:
 
     atexit.register(terminate_active_jobs)
 
+    # Real macOS "Liquid Glass": vibrancy puts an NSVisualEffectView behind the
+    # webview, and transparent lets it show through. On load we add body.vibrancy
+    # so the CSS drops its faux-desktop fallback and reveals the system material.
     window = webview.create_window(
         WINDOW_TITLE,
         url=server.base_url,
         width=1180,
         height=860,
         min_size=(820, 640),
+        vibrancy=True,
+        transparent=True,
+        background_color="#1A1E20",
     )
     window.events.closed += on_close
+
+    def on_loaded() -> None:
+        try:
+            window.evaluate_js("document.body.classList.add('vibrancy')")
+        except Exception:
+            pass  # vibrancy is a visual nicety; never block on it
+
+    window.events.loaded += on_loaded
 
     webview.start()
 
