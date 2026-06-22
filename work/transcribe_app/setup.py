@@ -77,9 +77,17 @@ PLIST = {
     "CFBundleVersion": "1.0.0",
     "LSMinimumSystemVersion": "11.0",
     "NSHighResolutionCapable": True,
-    # Prepared for Phase 3 (Live recording in the WebView needs this string or
-    # getUserMedia is rejected silently).
+    # Live recording in the WebView needs this string or getUserMedia is rejected.
     "NSMicrophoneUsageDescription": "Local Transcript records from your microphone for live transcription.",
+    # A Finder-launched app inherits no locale, so Python would default to ASCII
+    # and crash decoding non-ASCII (e.g. Cantonese) output. Force UTF-8 mode for
+    # the whole interpreter — covers opencc's CJK dictionaries and all file I/O.
+    "LSEnvironment": {
+        "PYTHONUTF8": "1",
+        "PYTHONIOENCODING": "utf-8",
+        "LANG": "en_US.UTF-8",
+        "LC_ALL": "en_US.UTF-8",
+    },
 }
 
 OPTIONS = {

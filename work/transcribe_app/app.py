@@ -263,6 +263,8 @@ def system_snapshot(pid: int | None) -> dict[str, Any]:
             output = subprocess.check_output(
                 ["ps", "-p", str(pid), "-o", "%cpu=,%mem=,rss=,etime="],
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 timeout=2,
             ).strip()
             if output:
@@ -278,7 +280,7 @@ def system_snapshot(pid: int | None) -> dict[str, Any]:
             pass
 
     try:
-        vm = subprocess.check_output(["vm_stat"], text=True, timeout=2)
+        vm = subprocess.check_output(["vm_stat"], text=True, encoding="utf-8", errors="replace", timeout=2)
         page_size_match = re.search(r"page size of (\d+) bytes", vm)
         page_size = int(page_size_match.group(1)) if page_size_match else 4096
         values: dict[str, int] = {}
@@ -690,6 +692,11 @@ def run_transcription(job_id: str, upload_path: Path, language: str, output_form
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
+            # whisper-cli streams the transcript (e.g. Cantonese) to stdout. Decode
+            # as UTF-8 explicitly: a Finder-launched .app has no locale, so text=True
+            # would otherwise default to ASCII and crash on the first CJK byte.
+            encoding="utf-8",
+            errors="replace",
             bufsize=1,
         )
         update_job(job_id, process_pid=process.pid)
