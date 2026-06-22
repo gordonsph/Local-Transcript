@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import csv
+import ipaddress
 import json
 import os
+import socket
 import re
 import shutil
 import subprocess
 import signal
+import sys
 import threading
 import time
 import uuid
@@ -16,7 +19,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 from urllib.parse import unquote, urlparse
-from urllib.request import urlopen
+from urllib.request import HTTPRedirectHandler, build_opener
 
 import av
 import numpy as np
@@ -25,9 +28,24 @@ from opencc import OpenCC
 from werkzeug.utils import secure_filename
 
 
-DEFAULT_ROOT = Path(__file__).resolve().parents[2]
+# Templates/static resolve next to this module in a source checkout. In a frozen
+# .app bundle the module lives inside lib/python3.13, while py2app copies those
+# folders to Contents/Resources (exposed as $RESOURCEPATH), so resolve there
+# instead. The data ROOT (models, whisper-cli, outputs) is resolved separately
+# below and may live elsewhere on disk.
+if getattr(sys, "frozen", False):
+    APP_ROOT = Path(os.environ["RESOURCEPATH"])
+else:
+    APP_ROOT = Path(__file__).resolve().parent
+
+# When frozen into a .app bundle there is no source tree to fall back on, so the
+# writable runtime defaults to Application Support; from a source checkout it
+# defaults to the repository root. Either can be overridden with the env var.
+if getattr(sys, "frozen", False):
+    DEFAULT_ROOT = Path.home() / "Library" / "Application Support" / "LocalTranscript"
+else:
+    DEFAULT_ROOT = APP_ROOT.parents[1]
 ROOT = Path(os.environ.get("LOCAL_TRANSCRIPT_ROOT", DEFAULT_ROOT)).expanduser().resolve()
-APP_ROOT = ROOT / "work" / "transcribe_app"
 OUTPUT_ROOT = ROOT / "outputs" / "transcribe_app"
 DEFAULT_RESULT_ROOT = OUTPUT_ROOT / "results"
 WHISPER_ROOT = ROOT / "work" / "whisper.cpp"
@@ -151,11 +169,54 @@ def safe_filename_from_url(url: str) -> str:
     return safe_name
 
 
+def assert_public_url(url: str) -> None:
+    """Reject URLs that resolve to loopback/private/link-local/reserved addresses.
+
+    The transcription server has no auth and binds loopback, so an attacker-supplied
+    URL could otherwise be used to make it fetch 127.0.0.1 or LAN hosts (SSRF). We
+    resolve the host and refuse any non-public address. (DNS rebinding between this
+    check and the fetch is still theoretically possible but out of scope for a local
+    single-user tool.)
+    """
+    parsed = urlparse(url)
+    host = parsed.hostname
+    if parsed.scheme not in {"http", "https"} or not host:
+        raise ValueError("Enter a valid http or https media URL.")
+    try:
+        port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    except ValueError as exc:
+        raise ValueError("Enter a valid http or https media URL.") from exc
+    try:
+        infos = socket.getaddrinfo(host, port, proto=socket.IPPROTO_TCP)
+    except socket.gaierror as exc:
+        raise ValueError(f"Could not resolve host: {host}") from exc
+    for info in infos:
+        ip = ipaddress.ip_address(info[4][0])
+        # Positive allowlist: only globally-routable addresses are permitted.
+        # is_global is False for private, loopback, link-local, reserved,
+        # multicast, unspecified AND CGNAT/shared space (100.64.0.0/10), so this
+        # is stricter and simpler than enumerating each special range.
+        if not ip.is_global:
+            raise ValueError("Refusing to fetch a non-public (private, loopback, or reserved) address.")
+
+
+class _PublicOnlyRedirect(HTTPRedirectHandler):
+    """Re-validate every redirect target so a public URL can't 30x to localhost/LAN."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        assert_public_url(newurl)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+_safe_url_opener = build_opener(_PublicOnlyRedirect)
+
+
 def download_url_to_source(url: str, destination_dir: Path) -> Path:
     filename = safe_filename_from_url(url)
+    assert_public_url(url)
     destination_dir.mkdir(parents=True, exist_ok=True)
     path = destination_dir / filename
-    with urlopen(url, timeout=30) as response, path.open("wb") as out:
+    with _safe_url_opener.open(url, timeout=30) as response, path.open("wb") as out:
         shutil.copyfileobj(response, out)
     return path
 
@@ -776,6 +837,55 @@ def get_job(job_id: str):
     if status_path.exists():
         return jsonify(json.loads(status_path.read_text(encoding="utf-8")))
     return jsonify({"error": "Job not found."}), 404
+
+
+def _pid_alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def terminate_active_jobs(grace: float = 3.0) -> None:
+    """Stop any in-flight whisper-cli children.
+
+    Called on app shutdown (window close / interpreter exit) so quitting never
+    leaves an orphaned — or SIGSTOP-suspended — transcription pinning CPU/GPU/RAM.
+    SIGCONT first so a paused child can actually receive the SIGTERM, then escalate
+    to SIGKILL for anything that ignores the grace period. Safe to call repeatedly
+    and when no jobs are running.
+    """
+    with jobs_lock:
+        pids = [job.process_pid for job in jobs.values() if job.process_pid]
+        for job in jobs.values():
+            if job.process_pid:
+                job.cancel_requested = True
+    if not pids:
+        return
+    for pid in pids:
+        try:
+            os.kill(pid, signal.SIGCONT)
+            os.kill(pid, signal.SIGTERM)
+        except OSError:
+            continue
+    # Deliberately do NOT os.waitpid() here: the worker thread's process.wait()
+    # owns reaping each child, and a second reaper would race it. The cost is
+    # that a SIGTERM'd-but-unreaped child reads as alive (zombie), so in the rare
+    # case where the worker isn't reaping (interpreter teardown) this loop may run
+    # the full grace before the SIGKILL no-ops. The child is dead either way.
+    deadline = time.monotonic() + grace
+    while time.monotonic() < deadline:
+        if not any(_pid_alive(pid) for pid in pids):
+            return
+        time.sleep(0.1)
+    for pid in pids:
+        try:
+            os.kill(pid, signal.SIGKILL)
+        except OSError:
+            pass
 
 
 @app.post("/api/jobs/<job_id>/<action>")

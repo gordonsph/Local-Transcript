@@ -1,0 +1,3 @@
+# Build-time only dependencies (not needed to run the app, only to package the
+# .app bundle). Kept separate from requirements.txt so the runtime venv stays lean.
+py2app==0.28.10

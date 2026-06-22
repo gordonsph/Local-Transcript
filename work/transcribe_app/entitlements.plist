@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Entitlements for signing Local Transcript.app.
+
+  Required at notarization time (Phase 4) when the hardened runtime is enabled:
+  - device.audio-input: lets the WebView capture the microphone (Live recording).
+  - cs.allow-unsigned-executable-memory / cs.disable-library-validation: the
+    bundled CPython and its C extensions (PyAV/ffmpeg, numpy) load and JIT code
+    that the hardened runtime blocks by default.
+
+  Not used for day-to-day dev builds (the app runs unsigned there); apply with:
+    codesign --force --options runtime --entitlements entitlements.plist ...
+-->
+<plist version="1.0">
+<dict>
+  <key>com.apple.security.device.audio-input</key>
+  <true/>
+  <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+  <true/>
+  <key>com.apple.security.cs.disable-library-validation</key>
+  <true/>
+</dict>
+</plist>
