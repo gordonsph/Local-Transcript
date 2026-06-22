@@ -26,7 +26,7 @@ from urllib.request import urlopen
 import webview
 from werkzeug.serving import make_server
 
-from app import app, terminate_active_jobs
+from app import app, sweep_stale_jobs, terminate_active_jobs
 
 
 # WKWebView denies getUserMedia (Live recording) unless the app's UI delegate
@@ -88,7 +88,7 @@ def _declassify_bundle() -> None:
         return
     try:
         subprocess.run(
-            ["xattr", "-dr", "com.apple.quarantine", str(bundle)],
+            ["/usr/bin/xattr", "-dr", "com.apple.quarantine", str(bundle)],
             check=False,
             timeout=30,
             stdout=subprocess.DEVNULL,
@@ -138,6 +138,7 @@ class FlaskServer:
 
 def main() -> None:
     _declassify_bundle()
+    sweep_stale_jobs()  # mark jobs interrupted by a previous quit as failed
 
     server = FlaskServer("127.0.0.1", _free_port())
     server.start()

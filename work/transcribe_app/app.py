@@ -25,7 +25,6 @@ import av
 import numpy as np
 from flask import Flask, jsonify, render_template, request, send_file
 from opencc import OpenCC
-from werkzeug.utils import secure_filename
 
 import model_downloader
 
@@ -96,6 +95,10 @@ FORMATS = {
 }
 
 SOURCE_TYPES = {"file", "url", "live"}
+# A job is "active" (occupies the single transcription slot) in any of these.
+ACTIVE_STATUSES = {"queued", "preparing", "running", "paused", "cancelling", "finalizing"}
+TERMINAL_STATUSES = {"done", "failed", "cancelled"}
+MAX_RETAINED_JOBS = 50  # cap the in-memory registry; status.json keeps older history
 
 app = Flask(
     __name__,
@@ -103,6 +106,18 @@ app = Flask(
     static_folder=str(APP_ROOT / "static"),
 )
 app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024 * 1024
+
+
+@app.errorhandler(413)
+def _too_large(_error):
+    # Always JSON so the frontend shows a clear message instead of misreading
+    # an HTML 413 body as a lost connection.
+    return jsonify({"error": "That file is too large (5 GB limit)."}), 413
+
+
+@app.errorhandler(500)
+def _server_error(_error):
+    return jsonify({"error": "Something went wrong on the local server."}), 500
 
 
 @dataclass
@@ -179,13 +194,29 @@ def format_duration(seconds: float | None) -> str:
     return f"{s}s"
 
 
+def safe_local_name(name: str, fallback: str) -> str:
+    """Sanitize a filename for safe local storage while PRESERVING Unicode.
+
+    werkzeug's secure_filename strips every non-ASCII character, which destroys
+    Cantonese/Chinese filenames (the primary use case) — '會議錄音.mp3' becomes
+    'mp3'. We only need path-safety here (each job has its own isolated dir), so
+    keep the Unicode and just remove path separators, control chars, and leading
+    dots. Cap length to stay filesystem-safe.
+    """
+    name = Path(str(name or "")).name  # strips any directory / traversal components
+    name = re.sub(r"[/\\\x00-\x1f]", "", name).strip().lstrip(".")
+    if len(name) > 180:
+        stem, dot, ext = name.rpartition(".")
+        name = ((stem[:160] + dot + ext[:16]) if dot else name[:180])
+    return name or fallback
+
+
 def safe_filename_from_url(url: str) -> str:
     parsed = urlparse(url.strip())
     if parsed.scheme not in {"http", "https"} or not parsed.netloc:
         raise ValueError("Enter a valid http or https media URL.")
-    name = unquote(Path(parsed.path).name or "media")
-    safe_name = secure_filename(name) or "media"
-    return safe_name
+    name = unquote(Path(parsed.path).name or "")
+    return safe_local_name(name, "media")
 
 
 def assert_public_url(url: str) -> None:
@@ -230,13 +261,30 @@ class _PublicOnlyRedirect(HTTPRedirectHandler):
 _safe_url_opener = build_opener(_PublicOnlyRedirect)
 
 
+MAX_URL_DOWNLOAD_BYTES = 5 * 1024 * 1024 * 1024  # 5 GB ceiling for remote media
+
+
 def download_url_to_source(url: str, destination_dir: Path) -> Path:
     filename = safe_filename_from_url(url)
     assert_public_url(url)
     destination_dir.mkdir(parents=True, exist_ok=True)
     path = destination_dir / filename
-    with _safe_url_opener.open(url, timeout=30) as response, path.open("wb") as out:
-        shutil.copyfileobj(response, out)
+    with _safe_url_opener.open(url, timeout=30) as response:
+        ctype = (response.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+        if ctype.startswith("text/") or ctype in {"application/json", "application/xml", "text/html"}:
+            raise ValueError("That URL returned a web page, not a media file.")
+        total = 0
+        with path.open("wb") as out:
+            while True:
+                chunk = response.read(1024 * 1024)
+                if not chunk:
+                    break
+                total += len(chunk)
+                if total > MAX_URL_DOWNLOAD_BYTES:
+                    out.close()
+                    path.unlink(missing_ok=True)
+                    raise ValueError("Remote file exceeds the 5 GB limit.")
+                out.write(chunk)
     return path
 
 
@@ -261,7 +309,7 @@ def system_snapshot(pid: int | None) -> dict[str, Any]:
     if pid:
         try:
             output = subprocess.check_output(
-                ["ps", "-p", str(pid), "-o", "%cpu=,%mem=,rss=,etime="],
+                ["/bin/ps", "-p", str(pid), "-o", "%cpu=,%mem=,rss=,etime="],
                 text=True,
                 encoding="utf-8",
                 errors="replace",
@@ -280,7 +328,7 @@ def system_snapshot(pid: int | None) -> dict[str, Any]:
             pass
 
     try:
-        vm = subprocess.check_output(["vm_stat"], text=True, encoding="utf-8", errors="replace", timeout=2)
+        vm = subprocess.check_output(["/usr/bin/vm_stat"], text=True, encoding="utf-8", errors="replace", timeout=2)
         page_size_match = re.search(r"page size of (\d+) bytes", vm)
         page_size = int(page_size_match.group(1)) if page_size_match else 4096
         values: dict[str, int] = {}
@@ -333,10 +381,12 @@ def eta_from_progress(progress: float, elapsed: float, samples: list[tuple[float
     return max(global_eta, recent_eta) * slowdown_margin
 
 
-def refresh_runtime_status(job: Job) -> None:
+def refresh_runtime_status(job: Job, snapshot: dict[str, Any] | None = None) -> None:
     now = time.time()
     if job.process_pid:
-        job.system = system_snapshot(job.process_pid)
+        # Accept a precomputed snapshot so callers can run the ps/vm_stat
+        # subprocesses OUTSIDE jobs_lock (holding it stalls the worker thread).
+        job.system = snapshot if snapshot is not None else system_snapshot(job.process_pid)
 
     if job.status not in {"running", "paused", "cancelling"} or not job.transcribe_started_at:
         job.updated_at = now
@@ -410,9 +460,75 @@ def save_status(job: Job) -> None:
     path.write_text(json.dumps(serialize_job(job), ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def read_status_json(job_id: str) -> dict[str, Any] | None:
+    """Read a job's persisted status.json, tolerating truncated/corrupt content
+    (e.g. the app was killed mid-write). Returns None if absent/unreadable."""
+    path = job_dir(job_id) / "status.json"
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
+def _prune_finished_jobs() -> None:
+    """Cap the in-memory jobs dict so a long-running session doesn't grow forever.
+    Only terminal jobs are evicted; status.json still serves their history."""
+    with jobs_lock:
+        if len(jobs) <= MAX_RETAINED_JOBS:
+            return
+        terminal = [(j.updated_at, jid) for jid, j in jobs.items() if j.status in TERMINAL_STATUSES]
+        terminal.sort()
+        for _, jid in terminal[: len(jobs) - MAX_RETAINED_JOBS]:
+            jobs.pop(jid, None)
+
+
+def _fail_job(job_id: str, message: str) -> None:
+    """Mark a job failed without ever raising — the worker's last act, so a
+    secondary error (e.g. disk full during save) can't kill the thread and hang
+    the UI in a permanent 'running' spinner."""
+    try:
+        with jobs_lock:
+            job = jobs.get(job_id)
+            if job:
+                job.status = "failed"
+                job.message = "Failed"
+                job.error = message
+                job.process_pid = None
+                job.updated_at = time.time()
+                try:
+                    save_status(job)
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+
+def _stop_process(process: "subprocess.Popen", grace: float = 3.0) -> None:
+    """Terminate a child, escalating to SIGKILL if it ignores SIGTERM, so a
+    cancel can never hang the worker on a stuck whisper-cli."""
+    try:
+        process.terminate()
+    except OSError:
+        pass
+    try:
+        process.wait(timeout=grace)
+        return
+    except subprocess.TimeoutExpired:
+        pass
+    except Exception:
+        return
+    try:
+        process.kill()
+        process.wait(timeout=2)
+    except Exception:
+        pass
+
+
 def update_job(job_id: str, **changes: Any) -> None:
     with jobs_lock:
-        job = jobs[job_id]
+        job = jobs.get(job_id)
+        if job is None:
+            return
         for key, value in changes.items():
             setattr(job, key, value)
         job.updated_at = time.time()
@@ -455,6 +571,19 @@ def append_log(job_id: str, line: str) -> None:
             save_status(job)
 
 
+def model_complete() -> bool:
+    """The model is usable only if present AND the full expected size — a partial
+    rsync/copy of ggml-large-v3.bin would otherwise be loaded as a corrupt model."""
+    try:
+        return MODEL_PATH.exists() and MODEL_PATH.stat().st_size == model_downloader.LARGE_V3_SIZE
+    except OSError:
+        return False
+
+
+def app_ready() -> bool:
+    return model_complete() and WHISPER_CLI.exists()
+
+
 def ensure_ready() -> None:
     missing = []
     for label, path in {
@@ -468,28 +597,47 @@ def ensure_ready() -> None:
 
 
 def convert_audio_to_wav(src: Path, dst: Path) -> None:
-    container = av.open(str(src))
-    stream = next((s for s in container.streams if s.type == "audio"), None)
-    if stream is None:
-        raise RuntimeError("No audio stream found in uploaded file.")
+    try:
+        container = av.open(str(src))
+    except Exception as exc:  # av.error.* / OSError — unreadable or non-media file
+        raise RuntimeError("Could not read this file as audio or video.") from exc
 
-    resampler = av.AudioResampler(format="s16", layout="mono", rate=16000)
-    dst.parent.mkdir(parents=True, exist_ok=True)
+    frames_written = 0
+    try:
+        stream = next((s for s in container.streams if s.type == "audio"), None)
+        if stream is None:
+            raise RuntimeError("This file has no audio track.")
 
-    with wave.open(str(dst), "wb") as out:
-        out.setnchannels(1)
-        out.setsampwidth(2)
-        out.setframerate(16000)
+        resampler = av.AudioResampler(format="s16", layout="mono", rate=16000)
+        dst.parent.mkdir(parents=True, exist_ok=True)
 
-        for frame in container.decode(stream):
-            converted = resampler.resample(frame)
+        def emit(out, converted) -> int:
             if converted is None:
-                continue
-            frames = converted if isinstance(converted, list) else [converted]
-            for audio_frame in frames:
-                data = audio_frame.to_ndarray()
-                data = np.asarray(data, dtype=np.int16).reshape(-1)
+                return 0
+            n = 0
+            for audio_frame in (converted if isinstance(converted, list) else [converted]):
+                data = np.asarray(audio_frame.to_ndarray(), dtype=np.int16).reshape(-1)
                 out.writeframes(data.tobytes())
+                n += data.shape[0]
+            return n
+
+        with wave.open(str(dst), "wb") as out:
+            out.setnchannels(1)
+            out.setsampwidth(2)
+            out.setframerate(16000)
+            try:
+                for frame in container.decode(stream):
+                    frames_written += emit(out, resampler.resample(frame))
+            except Exception as exc:
+                raise RuntimeError("Could not decode the audio in this file.") from exc
+            # Flush the resampler's internally buffered tail (otherwise the last
+            # fraction of a second of every transcript is silently dropped).
+            frames_written += emit(out, resampler.resample(None))
+    finally:
+        container.close()
+
+    if frames_written == 0:
+        raise RuntimeError("No decodable audio found in this file.")
 
 
 def ts_srt(seconds: float) -> str:
@@ -526,18 +674,20 @@ def load_segments(json_path: Path, language: str) -> list[dict[str, Any]]:
     raw_segments = data.get("transcription") or data.get("segments") or []
     segments = []
     for idx, item in enumerate(raw_segments, start=1):
-        offsets = item.get("offsets") or {}
         start = item.get("start")
         end = item.get("end")
-        if start is None:
-            start = offsets.get("from")
-        if end is None:
-            end = offsets.get("to")
+        # whisper.cpp's -ojf JSON has no start/end; it emits offsets.from/to as
+        # integer MILLISECONDS. Convert those unconditionally (the old >10000ms
+        # heuristic silently 1000x-inflated every sub-10s timestamp). Only the
+        # rare second-based float variants populate start/end directly.
+        if start is None and end is None:
+            offsets = item.get("offsets") or {}
+            if offsets.get("from") is not None:
+                start = offsets["from"] / 1000.0
+            if offsets.get("to") is not None:
+                end = offsets["to"] / 1000.0
         if start is None or end is None:
             continue
-        if start > 10_000 or end > 10_000:
-            start = start / 1000
-            end = end / 1000
         text = normalize_text(str(item.get("text", "")), language)
         if not text:
             continue
@@ -587,11 +737,17 @@ def write_outputs(source_name: str, segments: list[dict[str, Any]], base: Path, 
 
     if wants("csv"):
         path = base.with_suffix(".csv")
+
+        def csv_safe(text: str) -> str:
+            # Neutralize spreadsheet formula injection: a cell starting with
+            # = + - @ (or tab/CR) is treated as a formula by Excel/Sheets.
+            return ("'" + text) if text[:1] in ("=", "+", "-", "@", "\t", "\r") else text
+
         with path.open("w", encoding="utf-8", newline="") as f:
             writer = csv.writer(f)
             writer.writerow(["start", "end", "text"])
             for seg in segments:
-                writer.writerow([ts_label(seg["start"]), ts_label(seg["end"]), seg["text"]])
+                writer.writerow([ts_label(seg["start"]), ts_label(seg["end"]), csv_safe(seg["text"])])
         files["CSV"] = path.name
 
     if wants("json"):
@@ -704,8 +860,8 @@ def run_transcription(job_id: str, upload_path: Path, language: str, output_form
         progress_pattern = re.compile(r"progress\s*=\s*(\d+)%")
         for line in process.stdout:
             with jobs_lock:
-                if jobs[job_id].cancel_requested:
-                    process.terminate()
+                current = jobs.get(job_id)
+                if current and current.cancel_requested:
                     break
             append_log(job_id, line)
             match = progress_pattern.search(line)
@@ -718,15 +874,18 @@ def run_transcription(job_id: str, upload_path: Path, language: str, output_form
                 elapsed = time.time() - started_at
                 estimated_progress = min(95.0, max(2.0, elapsed / max(fallback_total, 1.0) * 100.0))
                 with jobs_lock:
-                    current = jobs[job_id]
-                    should_update = current.progress_source != "actual" and estimated_progress - current.progress >= 1.0
+                    current = jobs.get(job_id)
+                    should_update = bool(current) and current.progress_source != "actual" and estimated_progress - current.progress >= 1.0
                 if should_update:
                     update_progress(job_id, estimated_progress, "estimate", started_at, progress_samples, fallback_total)
 
+        with jobs_lock:
+            current = jobs.get(job_id)
+            was_cancelled = bool(current and current.cancel_requested)
+        if was_cancelled:
+            _stop_process(process)  # terminate -> grace -> SIGKILL; never hang here
         code = process.wait()
         update_job(job_id, process_pid=None)
-        with jobs_lock:
-            was_cancelled = jobs[job_id].cancel_requested
         if was_cancelled:
             update_job(job_id, status="cancelled", message="Cancelled", eta_seconds=0.0, process_pid=None)
             return
@@ -739,10 +898,30 @@ def run_transcription(job_id: str, upload_path: Path, language: str, output_form
 
         update_job(job_id, status="finalizing", message="Creating downloads", progress=98.0, progress_source="actual", eta_seconds=10)
         segments = load_segments(raw_json, language)
+        if not segments:
+            raise RuntimeError("No speech was detected in the audio.")
         files = write_outputs(upload_path.name, segments, final_base, output_format)
         append_log(job_id, f"Saved final transcripts to {final_dir}")
+        # The process already exited, so a terminate during finalizing takes the
+        # no-pid branch and only flips status to 'cancelling'. Honor that intent
+        # instead of clobbering it with 'done': commit the result atomically only
+        # if the user did not ask to cancel while we were writing files.
         with jobs_lock:
-            final_elapsed = processing_elapsed(jobs[job_id]) if job_id in jobs else time.time() - started_at
+            current = jobs.get(job_id)
+            cancelled = bool(current and current.cancel_requested)
+            if cancelled:
+                current.status = "cancelled"
+                current.message = "Cancelled"
+                current.eta_seconds = 0.0
+                current.process_pid = None
+                current.updated_at = time.time()
+                save_status(current)  # safe under the lock; does not re-acquire it
+            else:
+                final_elapsed = processing_elapsed(current) if current else time.time() - started_at
+        if cancelled:
+            # append_log re-acquires jobs_lock, so it MUST run after release.
+            append_log(job_id, "Cancelled after processing finished.")
+            return
         update_job(
             job_id,
             status="done",
@@ -755,7 +934,7 @@ def run_transcription(job_id: str, upload_path: Path, language: str, output_form
             eta_seconds=0.0,
         )
     except Exception as exc:
-        update_job(job_id, status="failed", message="Failed", error=str(exc))
+        _fail_job(job_id, str(exc))
 
 
 @app.get("/")
@@ -764,7 +943,7 @@ def index():
         "index.html",
         languages=LANGUAGES,
         formats=FORMATS,
-        model_ready=MODEL_PATH.exists(),
+        model_ready=app_ready(),
         vad_ready=VAD_MODEL_PATH.exists(),
         default_result_location=str(DEFAULT_RESULT_ROOT),
     )
@@ -772,7 +951,7 @@ def index():
 
 @app.get("/api/health")
 def health():
-    model_ok = MODEL_PATH.exists()
+    model_ok = model_complete()
     binary_ok = WHISPER_CLI.exists()
     return jsonify(
         {
@@ -822,6 +1001,7 @@ def create_job():
         return jsonify({"error": "Unsupported language."}), 400
     if output_format not in FORMATS:
         return jsonify({"error": "Unsupported output format."}), 400
+
     try:
         chosen_output_base = resolve_output_location(output_location)
         chosen_output_base.mkdir(parents=True, exist_ok=True)
@@ -829,6 +1009,19 @@ def create_job():
         return jsonify({"error": f"Cannot use result folder: {exc}"}), 400
 
     job_id = uuid.uuid4().hex[:12]
+    # Single-flight: reject a new job while one is active AND reserve the slot in
+    # the SAME locked section (a placeholder 'queued' job), so two near-simultaneous
+    # POSTs can't both pass the gate during the slow source-prep that follows.
+    with jobs_lock:
+        if any(j.status in ACTIVE_STATUSES for j in jobs.values()):
+            return jsonify({"error": "A transcription is already running. Wait for it to finish."}), 409
+        jobs[job_id] = Job(
+            id=job_id, language=language, output_format=output_format,
+            terminology=terminology, source_type=source_type,
+            status="preparing", message="Preparing source",
+            output_location=str(chosen_output_base / job_id),
+        )
+
     out_dir = job_dir(job_id)
     src_dir = source_dir(job_id)
     src_dir.mkdir(parents=True, exist_ok=True)
@@ -838,34 +1031,36 @@ def create_job():
             file = request.files.get("audio")
             if file is None or not file.filename:
                 message = "Stop recording before starting transcription." if source_type == "live" else "Choose an audio file."
-                return jsonify({"error": message}), 400
+                raise ValueError(message)
             fallback = "live-recording.webm" if source_type == "live" else "audio"
-            filename = secure_filename(file.filename) or fallback
+            filename = safe_local_name(file.filename, fallback)
             source_path = src_dir / filename
             file.save(source_path)
+            if source_path.stat().st_size == 0:
+                raise ValueError("The audio file is empty.")
         else:
             source_url = request.form.get("source_url", "").strip()
             if not source_url:
-                return jsonify({"error": "Enter a media URL."}), 400
+                raise ValueError("Enter a media URL.")
             source_path = download_url_to_source(source_url, src_dir)
     except Exception as exc:
-        return jsonify({"error": f"Cannot prepare source audio: {exc}"}), 400
+        with jobs_lock:
+            jobs.pop(job_id, None)  # release the reserved slot
+        shutil.rmtree(out_dir, ignore_errors=True)  # don't leave orphaned dirs
+        return jsonify({"error": str(exc)}), 400
 
-    job = Job(
-        id=job_id,
-        language=language,
-        output_format=output_format,
-        output_location=str(chosen_output_base / job_id),
-        terminology=terminology,
-        source_type=source_type,
-        source_name=source_path.name,
-        source_path=str(source_path),
-        source_url=source_url,
-        saved_source_filename=source_path.name,
-    )
     with jobs_lock:
-        jobs[job_id] = job
+        job = jobs.get(job_id)
+        if job is None:  # terminated during preparation
+            shutil.rmtree(out_dir, ignore_errors=True)
+            return jsonify({"error": "Job was cancelled."}), 409
+        job.source_name = source_path.name
+        job.source_path = str(source_path)
+        job.source_url = source_url
+        job.saved_source_filename = source_path.name
         save_status(job)
+        payload = serialize_job(job)  # snapshot before the worker thread mutates it
+    _prune_finished_jobs()
 
     thread = threading.Thread(
         target=run_transcription,
@@ -873,22 +1068,28 @@ def create_job():
         daemon=True,
     )
     thread.start()
-    return jsonify(serialize_job(job)), 202
+    return jsonify(payload), 202
 
 
 @app.get("/api/jobs/<job_id>")
 def get_job(job_id: str):
     with jobs_lock:
         job = jobs.get(job_id)
-        if job:
-            if job.process_pid:
-                refresh_runtime_status(job)
-                save_status(job)
-            return jsonify(serialize_job(job))
+        pid = job.process_pid if job else None
+        present = job is not None
+    if present:
+        snap = system_snapshot(pid) if pid else None  # subprocess OUTSIDE the lock
+        with jobs_lock:
+            job = jobs.get(job_id)
+            if job:
+                if pid:
+                    refresh_runtime_status(job, snapshot=snap)
+                    save_status(job)
+                return jsonify(serialize_job(job))
 
-    status_path = job_dir(job_id) / "status.json"
-    if status_path.exists():
-        return jsonify(json.loads(status_path.read_text(encoding="utf-8")))
+    data = read_status_json(job_id)
+    if data is not None:
+        return jsonify(data)
     return jsonify({"error": "Job not found."}), 404
 
 
@@ -955,18 +1156,49 @@ def control_job(job_id: str, action: str):
             return jsonify({"error": "Job not found."}), 404
         pid = job.process_pid
 
+    # Terminate must work even before whisper-cli has a PID (during 'preparing'):
+    # set the cancel flag so the worker bails out as soon as it reaches a check.
+    if action == "terminate" and not pid:
+        with jobs_lock:
+            job = jobs.get(job_id)
+            if not job or job.status in TERMINAL_STATUSES:
+                return jsonify({"error": "Job is no longer running."}), 409
+            job.cancel_requested = True
+            job.status = "cancelling"
+            job.message = "Cancelling"
+            job.updated_at = time.time()
+            save_status(job)
+            payload = serialize_job(job)
+        return jsonify(payload), 202
+
     if not pid:
         return jsonify({"error": "No active transcription process for this job."}), 409
 
+    # The guard, the signal, and the status write are ONE critical section per
+    # action. os.kill is a non-blocking syscall, so holding jobs_lock across it
+    # is cheap and prevents a concurrent pause/resume/terminate from interleaving
+    # and clobbering each other's status (e.g. a late 'paused' overwriting the
+    # worker's 'cancelled', which would wedge the single transcription slot).
     try:
         if action == "pause":
-            os.kill(pid, signal.SIGSTOP)
-            update_job(job_id, status="paused", message="Paused", paused_at=time.time())
+            with jobs_lock:
+                job = jobs.get(job_id)
+                if not job or job.status != "running" or job.cancel_requested:
+                    return jsonify({"error": "Job is not running."}), 409
+                os.kill(pid, signal.SIGSTOP)
+                job.status = "paused"
+                job.message = "Paused"
+                job.paused_at = time.time()
+                job.updated_at = time.time()
+                save_status(job)
+                payload = serialize_job(job)
             append_log(job_id, "Paused transcription.")
         elif action == "resume":
-            os.kill(pid, signal.SIGCONT)
             with jobs_lock:
-                job = jobs[job_id]
+                job = jobs.get(job_id)
+                if not job or job.status != "paused" or job.cancel_requested:
+                    return jsonify({"error": "Job is not paused."}), 409
+                os.kill(pid, signal.SIGCONT)
                 if job.paused_at:
                     job.total_paused_seconds += max(0.0, time.time() - job.paused_at)
                 job.paused_at = 0.0
@@ -974,49 +1206,95 @@ def control_job(job_id: str, action: str):
                 job.message = "Resumed"
                 job.updated_at = time.time()
                 save_status(job)
+                payload = serialize_job(job)
             append_log(job_id, "Resumed transcription.")
-        else:
+        else:  # terminate with a live pid
             with jobs_lock:
-                was_paused = jobs[job_id].status == "paused"
-                jobs[job_id].cancel_requested = True
-            os.kill(pid, signal.SIGTERM)
-            if was_paused:
-                os.kill(pid, signal.SIGCONT)
-            update_job(job_id, status="cancelling", message="Cancelling", cancel_requested=True)
+                job = jobs.get(job_id)
+                if not job or job.status in TERMINAL_STATUSES:
+                    return jsonify({"error": "Job is no longer running."}), 409
+                was_paused = bool(job.status == "paused")
+                job.cancel_requested = True
+                os.kill(pid, signal.SIGTERM)
+                if was_paused:  # a stopped child can't act on SIGTERM until resumed
+                    os.kill(pid, signal.SIGCONT)
+                job.status = "cancelling"
+                job.message = "Cancelling"
+                job.updated_at = time.time()
+                save_status(job)
+                payload = serialize_job(job)
             append_log(job_id, "Cancellation requested.")
     except ProcessLookupError:
+        # os.kill raised inside the `with` block; the lock is already released by
+        # the time this handler runs, so update_job can re-acquire it safely.
         update_job(job_id, process_pid=None)
         return jsonify({"error": "The transcription process already exited."}), 409
     except Exception as exc:
         return jsonify({"error": str(exc)}), 500
 
-    with jobs_lock:
-        return jsonify(serialize_job(jobs[job_id]))
+    return jsonify(payload), 202
 
 
 @app.get("/download/<job_id>/<path:filename>")
 def download(job_id: str, filename: str):
-    safe_name = Path(filename).name
-    status_path = job_dir(job_id) / "status.json"
+    safe_name = Path(filename).name  # strip any directory components
     output_location = ""
     with jobs_lock:
         job = jobs.get(job_id)
         if job:
             output_location = job.output_location
-    if not output_location and status_path.exists():
-        output_location = json.loads(status_path.read_text(encoding="utf-8")).get("output_location", "")
+    if not output_location:
+        data = read_status_json(job_id)
+        if data:
+            output_location = data.get("output_location", "")
 
     search_dirs = []
     if output_location:
         search_dirs.append(Path(output_location))
     search_dirs.append(source_dir(job_id))
     search_dirs.append(job_dir(job_id))
-    path = next((folder / safe_name for folder in search_dirs if (folder / safe_name).is_file()), job_dir(job_id) / safe_name)
-    if not path.exists() or not path.is_file():
-        return jsonify({"error": "File not found."}), 404
-    return send_file(path, as_attachment=True)
+
+    for folder in search_dirs:
+        candidate = (folder / safe_name)
+        try:
+            resolved = candidate.resolve()
+            # Confine to the folder we intended — output_location comes from
+            # persisted JSON, so never serve a file resolved outside it.
+            if resolved.is_file() and resolved.is_relative_to(folder.resolve()):
+                return send_file(resolved, as_attachment=True)
+        except (OSError, ValueError):
+            continue
+    return jsonify({"error": "File not found."}), 404
+
+
+def sweep_stale_jobs() -> None:
+    """On startup, mark any persisted job left in a non-terminal state (running/
+    paused/etc.) whose process is no longer alive as 'failed'. Otherwise a job
+    interrupted by a crash/quit shows forever as 'running' after relaunch."""
+    jobs_root = OUTPUT_ROOT / "jobs"
+    if not jobs_root.is_dir():
+        return
+    for status_path in jobs_root.glob("*/status.json"):
+        try:
+            data = json.loads(status_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if data.get("status") not in ACTIVE_STATUSES:
+            continue
+        pid = data.get("process_pid")
+        if pid and _pid_alive(int(pid)):
+            continue  # genuinely still running in another process — leave it
+        data["status"] = "failed"
+        data["message"] = "Interrupted"
+        data["error"] = "This transcription was interrupted (the app was closed)."
+        data["process_pid"] = None
+        try:
+            status_path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        except OSError:
+            pass
 
 
 if __name__ == "__main__":
+    sweep_stale_jobs()
     port = int(os.environ.get("PORT", "5057"))
     app.run(host="127.0.0.1", port=port, debug=False, threaded=True)

@@ -28,7 +28,7 @@ class DeclassifyBundleTests(unittest.TestCase):
             shell._declassify_bundle()
         run.assert_called_once()
         argv = run.call_args[0][0]
-        self.assertEqual(argv[:3], ["xattr", "-dr", "com.apple.quarantine"])
+        self.assertEqual(argv[:3], ["/usr/bin/xattr", "-dr", "com.apple.quarantine"])
         self.assertTrue(argv[3].endswith("Local Transcript.app"), argv[3])
 
     def test_skips_when_translocated(self):

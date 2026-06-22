@@ -48,8 +48,13 @@ class SourceJobTests(unittest.TestCase):
         filename = self.module.safe_filename_from_url(
             "https://example.com/archive/Quarterly%20Review.m4a?token=private"
         )
+        # The sanitizer preserves the real name (incl. spaces and Unicode); it
+        # only strips path separators / control chars.
+        self.assertEqual(filename, "Quarterly Review.m4a")
 
-        self.assertEqual(filename, "Quarterly_Review.m4a")
+    def test_safe_filename_from_url_preserves_cjk(self):
+        filename = self.module.safe_filename_from_url("https://example.com/%E7%B2%B5%E8%AA%9E.mp3")
+        self.assertEqual(filename, "粵語.mp3")
 
     def test_url_source_downloads_to_local_source_folder_and_records_metadata(self):
         def fake_download(url, destination_dir):

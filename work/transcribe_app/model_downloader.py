@@ -140,6 +140,11 @@ def start_download() -> bool:
     """Begin (or resume) the download on a background thread. Single-flight: a
     second call while a worker is alive is a no-op and returns False."""
     global _worker
+    # If a previous worker is still winding down from a cancel, let it finish
+    # first (outside the lock) so Retry isn't a silent no-op against a dying thread.
+    worker = _worker
+    if worker is not None and worker.is_alive() and _cancel.is_set():
+        worker.join(timeout=5)
     with _lock:
         if _worker is not None and _worker.is_alive():
             return False
