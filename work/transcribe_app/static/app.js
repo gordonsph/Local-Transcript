@@ -50,7 +50,8 @@ let recordingStartedAt = 0;
 let recordingTimerId = null;
 let deferredInstallPrompt = null;
 let pollFailures = 0;
-const modelReady = !startButton.disabled;
+let modelReady = !startButton.disabled;
+let setupPollTimer = null;
 
 function setFileLabel() {
   const file = audioInput.files[0];
@@ -415,3 +416,144 @@ window.addEventListener("beforeinstallprompt", (event) => {
   browserInstallButton.hidden = false;
 });
 updatePrimaryAction();
+
+// ── App Translocation warning ────────────────────────────────────────────────
+// If macOS is running a downloaded copy from a temporary mount, the bundled
+// engine can't run; tell the user to move the app to /Applications.
+const moveBanner = document.getElementById("moveBanner");
+if (moveBanner) {
+  fetch("/api/health")
+    .then((r) => r.json())
+    .then((h) => {
+      if (h.translocated) moveBanner.hidden = false;
+    })
+    .catch(() => {});
+}
+
+// ── First-run model download ─────────────────────────────────────────────────
+// Shown only when the model is missing (server renders #setupPanel). Lets the
+// user download the large-v3 model in-app, with resumable progress, instead of
+// a manual script. Re-enables Start when the model is ready.
+const setupPanel = document.getElementById("setupPanel");
+if (setupPanel) {
+  const setupMessage = document.getElementById("setupMessage");
+  const setupBar = document.getElementById("setupBar");
+  const setupBarFill = document.getElementById("setupBarFill");
+  const setupStats = document.getElementById("setupStats");
+  const setupPercent = document.getElementById("setupPercent");
+  const setupBytes = document.getElementById("setupBytes");
+  const setupSpeed = document.getElementById("setupSpeed");
+  const setupEta = document.getElementById("setupEta");
+  const downloadModelButton = document.getElementById("downloadModelButton");
+  const cancelDownloadButton = document.getElementById("cancelDownloadButton");
+
+  const formatBytes = (n) => {
+    if (!n) return "0 MB";
+    const gb = n / 1e9;
+    return gb >= 1 ? `${gb.toFixed(2)} GB` : `${Math.round(n / 1e6)} MB`;
+  };
+  const formatEta = (s) => {
+    if (s == null) return "—";
+    s = Math.round(s);
+    if (s >= 3600) return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
+    if (s >= 60) return `${Math.floor(s / 60)}m ${s % 60}s`;
+    return `${s}s`;
+  };
+
+  function showDownloading(active) {
+    setupBar.hidden = !active;
+    setupStats.hidden = !active;
+    downloadModelButton.hidden = active;
+    cancelDownloadButton.hidden = !active;
+  }
+
+  function renderSetup(state) {
+    const total = state.total || 0;
+    const ratio = total ? Math.max(0.02, Math.min(1, state.downloaded / total)) : 0.02;
+    setupBarFill.style.transform = `scaleX(${ratio})`;
+    setupPercent.textContent = `${(state.percent || 0).toFixed(0)}%`;
+    setupBytes.textContent = total ? `${formatBytes(state.downloaded)} / ${formatBytes(total)}` : "—";
+    setupSpeed.textContent = state.speed_bps ? `${formatBytes(state.speed_bps)}/s` : "—";
+    setupEta.textContent = state.status === "verifying" ? "verifying" : formatEta(state.eta_seconds);
+  }
+
+  function finishSetup() {
+    clearInterval(setupPollTimer);
+    setupPollTimer = null;
+    modelReady = true;
+    startButton.disabled = false;
+    setupPanel.hidden = true;
+    systemStatus.textContent = "Ready";
+    updatePrimaryAction();
+  }
+
+  function failSetup(state) {
+    clearInterval(setupPollTimer);
+    setupPollTimer = null;
+    showDownloading(false);
+    const byKind = {
+      offline: "Couldn’t reach the download server. Check your internet connection, then retry.",
+      disk_full: "Not enough free disk space — free up about 3 GB, then retry.",
+      checksum: "The download was corrupted. Retry to start it again from scratch.",
+      http: "The download server returned an error. Please retry in a moment.",
+    };
+    const message = byKind[state.error_kind] || state.error || "Download failed.";
+    setupMessage.innerHTML = `<span class="error">${message}</span>`;
+    downloadModelButton.hidden = false;
+    downloadModelButton.textContent = "Retry download";
+  }
+
+  async function pollSetup() {
+    let state;
+    try {
+      const response = await fetch("/api/setup/status");
+      state = await response.json();
+    } catch (error) {
+      return; // transient; next tick retries
+    }
+    if (state.ready || state.status === "done") return finishSetup();
+    if (state.status === "error") return failSetup(state);
+    if (state.status === "cancelled") {
+      clearInterval(setupPollTimer);
+      setupPollTimer = null;
+      showDownloading(false);
+      downloadModelButton.textContent = "Download model (2.9 GB)";
+      return;
+    }
+    renderSetup(state);
+  }
+
+  function beginPolling() {
+    showDownloading(true);
+    clearInterval(setupPollTimer);
+    setupPollTimer = setInterval(pollSetup, 1000);
+  }
+
+  async function startModelDownload() {
+    downloadModelButton.textContent = "Download model (2.9 GB)";
+    beginPolling();
+    try {
+      const response = await fetch("/api/setup/start", { method: "POST" });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        failSetup({ error: body.error || "Could not start the download." });
+      }
+    } catch (error) {
+      failSetup({ error_kind: "offline" });
+    }
+  }
+
+  downloadModelButton.addEventListener("click", startModelDownload);
+  cancelDownloadButton.addEventListener("click", () => {
+    fetch("/api/setup/cancel", { method: "POST" }).catch(() => {});
+  });
+
+  // Resume a download already in progress (e.g. the window was reopened).
+  fetch("/api/health")
+    .then((r) => r.json())
+    .then((h) => {
+      if (h.ready) return finishSetup();
+      if (h.setup_status === "downloading" || h.setup_status === "verifying") beginPolling();
+    })
+    .catch(() => {});
+}

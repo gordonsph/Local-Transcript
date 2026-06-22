@@ -798,12 +798,11 @@ button:focus-visible,
   letter-spacing: -0.004em;
 }
 
-/* ── Setup notice ────────────────────────────────────────── */
-.setup-notice {
+/* ── Move-to-Applications banner (App Translocation) ──────── */
+.move-banner {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  margin: 0;
   padding: 13px 15px;
   border: 1px solid var(--danger-line);
   background: var(--danger-bg);
@@ -813,20 +812,86 @@ button:focus-visible,
   line-height: 1.5;
 }
 
-.setup-notice svg {
+.move-banner svg {
   width: 18px;
   height: 18px;
   flex: none;
   margin-top: 1px;
 }
 
-.setup-notice code {
-  padding: 1px 6px;
-  border-radius: 6px;
-  background: var(--code-bg);
-  color: var(--code-ink);
-  font-family: var(--font-mono);
-  font-size: 12px;
+/* ── First-run model download panel ──────────────────────── */
+.setup-panel {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--inset);
+}
+
+.setup-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.setup-icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  border-radius: 9px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--accent);
+}
+
+.setup-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.setup-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.setup-copy strong {
+  font-size: 14px;
+  font-weight: 640;
+}
+
+.setup-copy span {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.setup-stats.readout-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.setup-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.setup-actions .primary {
+  width: auto;
+  flex: 1;
+  min-height: 44px;
+}
+
+@media (max-width: 680px) {
+  .setup-stats.readout-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .setup-actions {
+    flex-direction: column;
+  }
 }
 
 /* ── Primary action ──────────────────────────────────────── */

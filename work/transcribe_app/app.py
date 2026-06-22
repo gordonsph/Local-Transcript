@@ -27,21 +27,25 @@ from flask import Flask, jsonify, render_template, request, send_file
 from opencc import OpenCC
 from werkzeug.utils import secure_filename
 
+import model_downloader
+
 
 # Templates/static resolve next to this module in a source checkout. In a frozen
 # .app bundle the module lives inside lib/python3.13, while py2app copies those
 # folders to Contents/Resources (exposed as $RESOURCEPATH), so resolve there
 # instead. The data ROOT (models, whisper-cli, outputs) is resolved separately
 # below and may live elsewhere on disk.
-if getattr(sys, "frozen", False):
+FROZEN = bool(getattr(sys, "frozen", False))
+if FROZEN and os.environ.get("RESOURCEPATH"):
     APP_ROOT = Path(os.environ["RESOURCEPATH"])
 else:
+    # Source checkout, or a frozen build without RESOURCEPATH set (defensive).
     APP_ROOT = Path(__file__).resolve().parent
 
 # When frozen into a .app bundle there is no source tree to fall back on, so the
 # writable runtime defaults to Application Support; from a source checkout it
 # defaults to the repository root. Either can be overridden with the env var.
-if getattr(sys, "frozen", False):
+if FROZEN:
     DEFAULT_ROOT = Path.home() / "Library" / "Application Support" / "LocalTranscript"
 else:
     DEFAULT_ROOT = APP_ROOT.parents[1]
@@ -49,9 +53,24 @@ ROOT = Path(os.environ.get("LOCAL_TRANSCRIPT_ROOT", DEFAULT_ROOT)).expanduser().
 OUTPUT_ROOT = ROOT / "outputs" / "transcribe_app"
 DEFAULT_RESULT_ROOT = OUTPUT_ROOT / "results"
 WHISPER_ROOT = ROOT / "work" / "whisper.cpp"
-WHISPER_CLI = WHISPER_ROOT / "build" / "bin" / "whisper-cli"
+
+# Code vs data split: the whisper-cli binary + its dylibs ship INSIDE the .app
+# (relocated and signed, riding the app's Gatekeeper approval), so when frozen it
+# resolves from the bundle. Only the model files are downloaded into the writable
+# ROOT (Application Support) on first run. A source checkout uses the build tree.
+if FROZEN:
+    WHISPER_CLI = APP_ROOT / "whisper-runtime" / "whisper-cli"
+else:
+    WHISPER_CLI = WHISPER_ROOT / "build" / "bin" / "whisper-cli"
 MODEL_PATH = WHISPER_ROOT / "models" / "ggml-large-v3.bin"
 VAD_MODEL_PATH = WHISPER_ROOT / "models" / "ggml-silero-v6.2.0.bin"
+model_downloader.configure(MODEL_PATH, VAD_MODEL_PATH)
+
+# App Translocation: when a downloaded app is launched from Downloads (not moved
+# to /Applications), macOS runs it from a read-only randomized mount. The bundle
+# can't be declassified there, so the bundled whisper-cli would hang — surface it
+# to the UI so the user is told to move the app instead of hitting a silent dead end.
+TRANSLOCATED = FROZEN and "/AppTranslocation/" in str(APP_ROOT)
 LOCAL_LARGE_V3_REALTIME_FACTOR = 2.4
 MODEL_STARTUP_SECONDS = 60
 
@@ -746,14 +765,41 @@ def index():
 
 @app.get("/api/health")
 def health():
+    model_ok = MODEL_PATH.exists()
+    binary_ok = WHISPER_CLI.exists()
     return jsonify(
         {
-            "ready": MODEL_PATH.exists() and WHISPER_CLI.exists(),
+            "ready": model_ok and binary_ok,
             "whisper_cli": str(WHISPER_CLI),
             "model": str(MODEL_PATH),
             "vad": VAD_MODEL_PATH.exists(),
+            "binary_ok": binary_ok,
+            "model_ok": model_ok,
+            # The engine is bundled; only the model is missing -> offer the in-app download.
+            "downloadable": binary_ok and not model_ok,
+            "setup_status": model_downloader.get_state()["status"],
+            "translocated": TRANSLOCATED,
         }
     )
+
+
+@app.post("/api/setup/start")
+def setup_start():
+    if not WHISPER_CLI.exists():
+        return jsonify({"error": "The transcription engine is missing from the app bundle."}), 409
+    started = model_downloader.start_download()
+    return jsonify(model_downloader.get_state()), (202 if started else 200)
+
+
+@app.get("/api/setup/status")
+def setup_status():
+    return jsonify(model_downloader.get_state())
+
+
+@app.post("/api/setup/cancel")
+def setup_cancel():
+    model_downloader.cancel_download()
+    return jsonify(model_downloader.get_state())
 
 
 @app.post("/api/jobs")

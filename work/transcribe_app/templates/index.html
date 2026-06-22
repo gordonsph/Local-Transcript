@@ -39,6 +39,11 @@
           </div>
         </header>
 
+        <div class="move-banner" id="moveBanner" role="alert" hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4"></path><path d="M12 17h.01"></path><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"></path></svg>
+          <span>Local Transcript is running from a temporary location. Move it to your <strong>Applications</strong> folder and reopen — it can’t run from the Downloads folder.</span>
+        </div>
+
         <form id="uploadForm" class="panel source-workspace">
           <input type="hidden" name="source_type" id="sourceType" value="file">
 
@@ -203,10 +208,28 @@
           </details>
 
           {% if not model_ready %}
-          <p class="setup-notice" id="setupNotice">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4"></path><path d="M12 17h.01"></path><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"></path></svg>
-            <span>Transcription model not installed yet. Run <code>work/provision_app_runtime.sh</code> from the project folder, then reopen the app.</span>
-          </p>
+          <section class="setup-panel" id="setupPanel">
+            <div class="setup-head">
+              <span class="setup-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"></path><path d="m7 10 5 5 5-5"></path><path d="M5 21h14"></path></svg>
+              </span>
+              <div class="setup-copy">
+                <strong>Transcription model required</strong>
+                <span id="setupMessage">Download the large-v3 model (2.9 GB) to start transcribing. It is stored on this Mac and only downloaded once.</span>
+              </div>
+            </div>
+            <div class="bar" id="setupBar" aria-hidden="true" hidden><span id="setupBarFill"></span></div>
+            <div class="setup-stats readout-grid" id="setupStats" aria-live="polite" hidden>
+              <div class="readout"><span>Progress</span><strong id="setupPercent">0%</strong></div>
+              <div class="readout"><span>Downloaded</span><strong id="setupBytes">—</strong></div>
+              <div class="readout"><span>Speed</span><strong id="setupSpeed">—</strong></div>
+              <div class="readout"><span>Remaining</span><strong id="setupEta">—</strong></div>
+            </div>
+            <div class="setup-actions">
+              <button type="button" class="primary" id="downloadModelButton">Download model (2.9 GB)</button>
+              <button type="button" class="secondary" id="cancelDownloadButton" hidden>Cancel</button>
+            </div>
+          </section>
           {% endif %}
           <button class="primary" type="submit" id="startButton" {% if not model_ready %}disabled{% endif %}>
             Start transcript
