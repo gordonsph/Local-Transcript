@@ -20,13 +20,13 @@ uipro init --ai codex
 `npm` installed the binary under:
 
 ```text
-/Users/siuph/.hermes/node/bin/uipro
+~/.hermes/node/bin/uipro
 ```
 
 A symlink was added so `uipro` works from PATH:
 
 ```text
-/Users/siuph/.local/bin/uipro -> /Users/siuph/.hermes/node/bin/uipro
+~/.local/bin/uipro -> ~/.hermes/node/bin/uipro
 ```
 
 Impeccable:
@@ -204,5 +204,5 @@ curl --max-time 5 -s http://127.0.0.1:5057/api/health
 The response should point to:
 
 ```text
-/Users/siuph/Library/Application Support/LocalTranscript/
+~/Library/Application Support/LocalTranscript/
 ```

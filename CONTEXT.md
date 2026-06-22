@@ -15,7 +15,7 @@ Build a lightweight local web workflow for future audio transcription:
 Root:
 
 ```text
-/Users/siuph/Documents/Codex/2026-06-17/can-you-transcribe-a-cantonese-audio
+~/Documents/Codex/2026-06-17/can-you-transcribe-a-cantonese-audio
 ```
 
 Important paths:
@@ -34,7 +34,7 @@ outputs/cantonese_transcript_full.md          Earlier faster-whisper transcript
 
 ## What Happened
 
-1. The original audio was `/Users/siuph/Downloads/16 Jun at 5-28 pm.m4a.mpeg`.
+1. The original audio was `~/Downloads/16 Jun at 5-28 pm.m4a.mpeg`.
 2. The first completed transcript used `faster-whisper` with `large-v3-turbo`, CPU int8, language `yue`, VAD, and Hong Kong Traditional normalization.
 3. We then decided `large-v3-turbo` was not the absolute highest-accuracy path because it is a faster pruned variant of `large-v3`.
 4. The new workflow was set up with `whisper.cpp` plus full `large-v3`.
@@ -150,7 +150,7 @@ http://127.0.0.1:5057/
 A LaunchAgent attempt was added:
 
 ```text
-work/com.siuph.local-transcript.plist
+work/com.gordonsiu.local-transcript.plist
 work/install_local_transcript_service.sh
 ```
 
@@ -208,7 +208,7 @@ ui-design-audit-workflow/SKILL.md
 ## Start App
 
 ```sh
-cd /Users/siuph/Documents/Codex/2026-06-17/can-you-transcribe-a-cantonese-audio
+cd ~/Documents/Codex/2026-06-17/can-you-transcribe-a-cantonese-audio
 work/start_transcribe_app.sh
 ```
 
@@ -270,13 +270,13 @@ Alternatives considered:
 Workspace source root:
 
 ```text
-/Users/siuph/Documents/Codex/2026-06-17/can-you-transcribe-a-cantonese-audio
+~/Documents/Codex/2026-06-17/can-you-transcribe-a-cantonese-audio
 ```
 
 Persistent installed runtime root:
 
 ```text
-/Users/siuph/Library/Application Support/LocalTranscript
+~/Library/Application Support/LocalTranscript
 ```
 
 Important installed/source paths:
@@ -477,13 +477,13 @@ Final approach:
 - Install a LaunchAgent at:
 
 ```text
-~/Library/LaunchAgents/com.siuph.local-transcript.plist
+~/Library/LaunchAgents/com.gordonsiu.local-transcript.plist
 ```
 
 - Set:
 
 ```text
-LOCAL_TRANSCRIPT_ROOT=/Users/siuph/Library/Application Support/LocalTranscript
+LOCAL_TRANSCRIPT_ROOT=~/Library/Application Support/LocalTranscript
 ```
 
 - Run:
@@ -502,10 +502,10 @@ Verified response after install:
 
 ```json
 {
-  "model": "/Users/siuph/Library/Application Support/LocalTranscript/work/whisper.cpp/models/ggml-large-v3.bin",
+  "model": "~/Library/Application Support/LocalTranscript/work/whisper.cpp/models/ggml-large-v3.bin",
   "ready": true,
   "vad": true,
-  "whisper_cli": "/Users/siuph/Library/Application Support/LocalTranscript/work/whisper.cpp/build/bin/whisper-cli"
+  "whisper_cli": "~/Library/Application Support/LocalTranscript/work/whisper.cpp/build/bin/whisper-cli"
 }
 ```
 
@@ -525,13 +525,13 @@ uipro init --ai codex
 What happened:
 
 - `npm install -g uipro-cli` installed `uipro-cli@2.2.3`.
-- npm's global prefix was `/Users/siuph/.hermes/node`.
+- npm's global prefix was `~/.hermes/node`.
 - The direct `uipro` command was initially unavailable on PATH.
-- The binary existed at `/Users/siuph/.hermes/node/bin/uipro`.
+- The binary existed at `~/.hermes/node/bin/uipro`.
 - A symlink was added so `uipro` resolves normally:
 
 ```text
-/Users/siuph/.local/bin/uipro -> /Users/siuph/.hermes/node/bin/uipro
+~/.local/bin/uipro -> ~/.hermes/node/bin/uipro
 ```
 
 Verified:
@@ -725,7 +725,7 @@ transcript.zip
 ```
 
 - A later persistent-runtime job verified live progress, ETA, elapsed time, output-location serialization, Metal logs, VAD logs, and system metrics, but was manually terminated after a long final phase and did not produce final transcript files.
-- Browser check after final persistent reinstall verified title `Local Transcript`, status `Ready`, default result folder under `/Users/siuph/Library/Application Support/LocalTranscript/outputs/transcribe_app/results`, background `rgb(246, 247, 248)`, accent `#0b7f68`, initial job panel hidden, and pause/continue/terminate initially disabled.
+- Browser check after final persistent reinstall verified title `Local Transcript`, status `Ready`, default result folder under `~/Library/Application Support/LocalTranscript/outputs/transcribe_app/results`, background `rgb(246, 247, 248)`, accent `#0b7f68`, initial job panel hidden, and pause/continue/terminate initially disabled.
 
 ### Known Risks And Future Improvements
 

@@ -18,7 +18,7 @@ Do not test only one easy clip. Build a small set with:
 Source:
 
 ```text
-/Users/siuph/Downloads/16 Jun at 5-28 pm.m4a.mpeg
+~/Downloads/16 Jun at 5-28 pm.m4a.mpeg
 ```
 
 A 90-second sample from the beginning was used to verify `whisper.cpp + large-v3`.

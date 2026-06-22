@@ -3,7 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="${LOCAL_TRANSCRIPT_ROOT:-$(cd "$SCRIPT_DIR/.." && pwd)}"
-LABEL="com.siuph.local-transcript"
+LABEL="com.gordonsiu.local-transcript"
 PLIST_TARGET="$HOME/Library/LaunchAgents/$LABEL.plist"
 UID_VALUE="$(id -u)"
 

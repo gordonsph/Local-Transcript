@@ -27,7 +27,7 @@ The right local shape is:
 Files added:
 
 ```text
-work/com.siuph.local-transcript.plist
+work/com.gordonsiu.local-transcript.plist
 work/install_local_transcript_service.sh
 ```
 
@@ -72,13 +72,13 @@ This copies the runtime into:
 and writes:
 
 ```text
-~/Library/LaunchAgents/com.siuph.local-transcript.plist
+~/Library/LaunchAgents/com.gordonsiu.local-transcript.plist
 ```
 
 The LaunchAgent sets:
 
 ```text
-LOCAL_TRANSCRIPT_ROOT=/Users/siuph/Library/Application Support/LocalTranscript
+LOCAL_TRANSCRIPT_ROOT=~/Library/Application Support/LocalTranscript
 ```
 
 The app should report installed paths from `/api/health`, not paths under the Codex workspace.
@@ -88,7 +88,7 @@ The app should report installed paths from `/api/health`, not paths under the Co
 After installing LaunchAgent:
 
 ```sh
-launchctl print gui/$(id -u)/com.siuph.local-transcript
+launchctl print gui/$(id -u)/com.gordonsiu.local-transcript
 curl http://127.0.0.1:5057/api/health
 lsof -nP -iTCP:5057 -sTCP:LISTEN
 ```
@@ -100,7 +100,7 @@ Expected health shape:
 ```json
 {
   "ready": true,
-  "model": "/Users/siuph/Library/Application Support/LocalTranscript/work/whisper.cpp/models/ggml-large-v3.bin",
+  "model": "~/Library/Application Support/LocalTranscript/work/whisper.cpp/models/ggml-large-v3.bin",
   "vad": true
 }
 ```

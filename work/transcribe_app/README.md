@@ -114,7 +114,7 @@ Verify:
 curl --max-time 5 -s http://127.0.0.1:5057/api/health
 ```
 
-The response should point to `/Users/siuph/Library/Application Support/LocalTranscript/`.
+The response should point to `~/Library/Application Support/LocalTranscript/`.
 
 ## Frontend Checks
 

@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SOURCE_ROOT="${SOURCE_ROOT:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 INSTALL_ROOT="$HOME/Library/Application Support/LocalTranscript"
-LABEL="com.siuph.local-transcript"
+LABEL="com.gordonsiu.local-transcript"
 PLIST_TARGET="$HOME/Library/LaunchAgents/$LABEL.plist"
 UID_VALUE="$(id -u)"
 
