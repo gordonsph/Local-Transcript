@@ -27,5 +27,8 @@ work/whisper.cpp/
 # Legacy generated plist. The install scripts generate current plists from the clone path.
 work/com.siuph.local-transcript.plist
 
+# Local brainstorming companion artifacts
+.superpowers/
+
 # Installed skill caches
 .codex/skills/ui-ux-pro-max/scripts/__pycache__/

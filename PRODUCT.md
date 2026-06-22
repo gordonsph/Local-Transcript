@@ -12,7 +12,7 @@ Future agents may also maintain this workflow. They need clear, predictable cont
 
 ## Product Purpose
 
-Local Transcript turns audio or video files into timestamped transcript outputs through a local `whisper.cpp` `large-v3` workflow. Success means the user can open a stable local bookmark, upload audio, choose language and output format, choose where results are saved, and monitor or control the job without needing terminal knowledge.
+Local Transcript turns audio or video sources into timestamped transcript outputs through a local `whisper.cpp` `large-v3` workflow. Success means the user can open a stable local bookmark, use a file, direct media URL, or live microphone recording, choose language and output format, choose where results are saved, and monitor or control the job without needing terminal knowledge.
 
 The product optimizes for local privacy, maximum practical transcription accuracy, and operational clarity over speed or visual novelty.
 
@@ -30,7 +30,7 @@ Do not hide important operational state. A long transcription job should never f
 
 ## Design Principles
 
-1. Show the workflow first. The upload and job controls are the product.
+1. Show the workflow first. Source selection, recording/import controls, and job controls are the product.
 2. Make long-running work legible. Progress, remaining time, elapsed time, save location, and system pressure should be visible when they matter.
 3. Keep choices few and meaningful. Language, output format, result folder, and terminology hints are enough for day 1; quality settings stay fixed.
 4. Prefer familiar product UI over invention. Standard selects, inputs, buttons, progress bars, and logs are appropriate here.

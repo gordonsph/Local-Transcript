@@ -157,14 +157,14 @@ No default box-shadow token is used. If a future modal is added, use a small str
 - **Metrics:** Done, remaining, elapsed, CPU, RAM, load, and GPU use fixed cells to avoid layout shifts.
 - **Logs:** Dark monospace area with bounded height and scroll.
 
-### Navigation
+### Source Workspace
 
-There is no navigation yet. Keep the app single-screen until there is a real second workflow.
+Use a compact source rail inspired by macOS Voice Memos: File, URL, and Live act as source selectors, while the active detail pane shows the current source controls. Live recording should use a timer and waveform-like strip to make recording state legible without decorative motion. Keep the app single-screen unless a future workflow genuinely needs another route.
 
 ## 6. Do's and Don'ts
 
 ### Do:
-- **Do** keep the upload, settings, progress, controls, metrics, path, logs, and downloads on one task-focused screen.
+- **Do** keep source selection, file/URL/live recording inputs, settings, progress, controls, metrics, paths, logs, and downloads on one task-focused screen.
 - **Do** use the teal accent for primary action, progress, and focus-related emphasis only.
 - **Do** preserve native form controls unless a custom control solves a real workflow problem.
 - **Do** keep text wrapping safe for long filenames, folders, and transcript terms.

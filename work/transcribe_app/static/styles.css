@@ -31,13 +31,17 @@ textarea {
   font: inherit;
 }
 
+button {
+  cursor: pointer;
+}
+
 .shell {
   min-height: 100vh;
   padding: 32px;
 }
 
 .workspace {
-  width: min(920px, 100%);
+  width: min(1120px, 100%);
   margin: 0 auto;
 }
 
@@ -47,6 +51,12 @@ textarea {
   justify-content: space-between;
   gap: 24px;
   margin-bottom: 22px;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 h1,
@@ -98,6 +108,82 @@ h2 {
   display: grid;
   gap: 18px;
   padding: 20px;
+}
+
+.source-workspace {
+  gap: 20px;
+}
+
+.source-layout {
+  display: grid;
+  grid-template-columns: 212px minmax(0, 1fr);
+  gap: 16px;
+}
+
+.source-rail {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-width: 0;
+}
+
+.source-tab {
+  display: grid;
+  gap: 2px;
+  min-height: 58px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--ink);
+  text-align: left;
+  transition: border-color 180ms ease, background 180ms ease, color 180ms ease;
+}
+
+.source-tab:hover {
+  border-color: var(--accent);
+  background: #f9fafb;
+}
+
+.source-tab.active {
+  border-color: var(--accent);
+  background: #effaf6;
+}
+
+.source-tab span {
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.source-tab small,
+.source-note,
+.source-state {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.source-tab:disabled {
+  color: var(--muted);
+  background: var(--bg);
+  cursor: not-allowed;
+}
+
+.source-note {
+  margin-top: 6px;
+  overflow-wrap: anywhere;
+}
+
+.source-detail {
+  min-width: 0;
+}
+
+.source-panel {
+  min-height: 190px;
+}
+
+.source-panel[hidden] {
+  display: none;
 }
 
 .dropzone {
@@ -157,6 +243,7 @@ label span {
 
 select,
 input[type="text"],
+input[type="url"],
 textarea {
   width: 100%;
   border: 1px solid var(--line);
@@ -175,6 +262,16 @@ input[type="text"] {
   padding: 0 12px;
 }
 
+input[type="url"] {
+  height: 48px;
+  padding: 0 12px;
+}
+
+::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+
 textarea {
   min-height: 84px;
   padding: 10px 12px;
@@ -183,6 +280,7 @@ textarea {
 
 select:focus,
 input[type="text"]:focus,
+input[type="url"]:focus,
 textarea:focus,
 button:focus-visible,
 .dropzone:focus-within {
@@ -208,6 +306,170 @@ button:focus-visible,
 .primary:disabled {
   background: var(--line);
   cursor: not-allowed;
+}
+
+.live-panel {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+
+.live-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.recording-title {
+  display: block;
+  max-width: 48ch;
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.recording-time {
+  display: block;
+  margin-top: 2px;
+  font-size: 28px;
+  font-weight: 650;
+  letter-spacing: 0;
+}
+
+.live-controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.record-button {
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: var(--accent);
+  color: #ffffff;
+  font-weight: 650;
+}
+
+.record-button:hover {
+  background: var(--accent-dark);
+}
+
+.record-button:disabled {
+  border-color: var(--line);
+  background: var(--line);
+  cursor: not-allowed;
+}
+
+.waveform {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  height: 76px;
+  padding: 0 12px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f9fafb;
+}
+
+.waveform span {
+  width: 100%;
+  min-width: 4px;
+  max-width: 12px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--line);
+  transform-origin: center;
+  transition: background 180ms ease, transform 180ms ease;
+}
+
+.waveform span:nth-child(3n + 1) {
+  height: 38px;
+}
+
+.waveform span:nth-child(4n + 2) {
+  height: 54px;
+}
+
+.waveform.recording span {
+  background: var(--accent);
+  animation: pulse-wave 900ms ease-in-out infinite alternate;
+}
+
+.waveform.recording span:nth-child(2n) {
+  animation-delay: 120ms;
+}
+
+.waveform.recording span:nth-child(3n) {
+  animation-delay: 240ms;
+}
+
+.waveform.ready span {
+  background: var(--accent);
+}
+
+.advanced-settings {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.advanced-settings summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 48px;
+  padding: 0 14px;
+  cursor: pointer;
+}
+
+.advanced-settings summary span {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.advanced-settings summary strong {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 560;
+  text-align: right;
+}
+
+.advanced-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  padding: 0 14px 14px;
+}
+
+.advanced-grid div {
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f9fafb;
+}
+
+.advanced-grid span {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.advanced-grid strong {
+  display: block;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  font-weight: 650;
 }
 
 .progress-panel {
@@ -299,17 +561,27 @@ button:focus-visible,
 }
 
 .secondary,
-.danger-button {
+.danger-button,
+.install-button,
+.dialog-close {
   min-height: 40px;
   border-radius: 8px;
   cursor: pointer;
   font-weight: 620;
 }
 
-.secondary {
+.secondary,
+.install-button,
+.dialog-close {
   border: 1px solid var(--line);
   background: #ffffff;
   color: var(--ink);
+}
+
+.secondary:hover,
+.install-button:hover,
+.dialog-close:hover {
+  border-color: var(--accent);
 }
 
 .danger-button {
@@ -374,9 +646,70 @@ pre {
   color: var(--danger);
 }
 
+.install-dialog {
+  width: min(560px, calc(100vw - 36px));
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--ink);
+  padding: 0;
+}
+
+.install-dialog::backdrop {
+  background: rgba(17, 24, 39, 0.36);
+}
+
+.install-dialog header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.install-options {
+  display: grid;
+  gap: 12px;
+  padding: 16px 18px;
+}
+
+.install-options section {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f9fafb;
+}
+
+.install-options h3 {
+  margin: 0 0 6px;
+  font-size: 16px;
+}
+
+.install-options p,
+.install-url {
+  color: var(--muted);
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.install-url {
+  padding: 0 18px 18px;
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+@keyframes pulse-wave {
+  from {
+    transform: scaleY(0.55);
+  }
+
+  to {
+    transform: scaleY(1.15);
   }
 }
 
@@ -402,6 +735,16 @@ pre {
     gap: 12px;
   }
 
+  .topbar-actions {
+    width: 100%;
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .install-button {
+    width: 100%;
+  }
+
   .status-pill {
     width: 100%;
   }
@@ -410,9 +753,36 @@ pre {
     grid-template-columns: 1fr;
   }
 
+  .source-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .source-rail {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .source-note {
+    grid-column: 1 / -1;
+  }
+
+  .live-head,
+  .advanced-settings summary {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .live-controls {
+    justify-content: stretch;
+  }
+
+  .live-controls button {
+    flex: 1;
+  }
+
   .metrics,
   .system-grid,
-  .controls {
+  .controls,
+  .advanced-grid {
     grid-template-columns: 1fr;
   }
 

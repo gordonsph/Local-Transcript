@@ -4,6 +4,7 @@ import csv
 import json
 import os
 import re
+import shutil
 import subprocess
 import signal
 import threading
@@ -14,6 +15,8 @@ import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+from urllib.parse import unquote, urlparse
+from urllib.request import urlopen
 
 import av
 import numpy as np
@@ -55,6 +58,8 @@ FORMATS = {
     "txt": "Text",
 }
 
+SOURCE_TYPES = {"file", "url", "live"}
+
 app = Flask(
     __name__,
     template_folder=str(APP_ROOT / "templates"),
@@ -72,6 +77,11 @@ class Job:
     output_format: str = "all"
     output_location: str = ""
     terminology: str = ""
+    source_type: str = "file"
+    source_name: str = ""
+    source_path: str = ""
+    source_url: str = ""
+    saved_source_filename: str = ""
     progress: float = 0.0
     progress_source: str = "pending"
     audio_duration_seconds: float = 0.0
@@ -101,6 +111,10 @@ def job_dir(job_id: str) -> Path:
     return OUTPUT_ROOT / "jobs" / job_id
 
 
+def source_dir(job_id: str) -> Path:
+    return job_dir(job_id) / "source"
+
+
 def resolve_output_location(raw: str = "") -> Path:
     value = (raw or "").strip()
     if not value:
@@ -126,6 +140,24 @@ def format_duration(seconds: float | None) -> str:
     if m:
         return f"{m}m {s:02d}s"
     return f"{s}s"
+
+
+def safe_filename_from_url(url: str) -> str:
+    parsed = urlparse(url.strip())
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        raise ValueError("Enter a valid http or https media URL.")
+    name = unquote(Path(parsed.path).name or "media")
+    safe_name = secure_filename(name) or "media"
+    return safe_name
+
+
+def download_url_to_source(url: str, destination_dir: Path) -> Path:
+    filename = safe_filename_from_url(url)
+    destination_dir.mkdir(parents=True, exist_ok=True)
+    path = destination_dir / filename
+    with urlopen(url, timeout=30) as response, path.open("wb") as out:
+        shutil.copyfileobj(response, out)
+    return path
 
 
 def wav_duration(path: Path) -> float:
@@ -263,6 +295,11 @@ def serialize_job(job: Job) -> dict[str, Any]:
         "output_format_label": FORMATS.get(job.output_format, job.output_format),
         "output_location": job.output_location,
         "terminology": job.terminology,
+        "source_type": job.source_type,
+        "source_name": job.source_name,
+        "source_path": job.source_path,
+        "source_url": job.source_url,
+        "saved_source_filename": job.saved_source_filename,
         "progress": round(job.progress, 1),
         "progress_source": job.progress_source,
         "audio_duration_seconds": job.audio_duration_seconds,
@@ -641,6 +678,7 @@ def index():
         languages=LANGUAGES,
         formats=FORMATS,
         model_ready=MODEL_PATH.exists(),
+        vad_ready=VAD_MODEL_PATH.exists(),
         default_result_location=str(DEFAULT_RESULT_ROOT),
     )
 
@@ -659,14 +697,13 @@ def health():
 
 @app.post("/api/jobs")
 def create_job():
-    file = request.files.get("audio")
-    if file is None or not file.filename:
-        return jsonify({"error": "Choose an audio file."}), 400
-
+    source_type = request.form.get("source_type", "file")
     language = request.form.get("language", "yue")
     output_format = request.form.get("format", "all")
     output_location = request.form.get("output_location", "").strip()
     terminology = request.form.get("terminology", "").strip()[:2000]
+    if source_type not in SOURCE_TYPES:
+        return jsonify({"error": "Unsupported source type."}), 400
     if language not in LANGUAGES:
         return jsonify({"error": "Unsupported language."}), 400
     if output_format not in FORMATS:
@@ -679,10 +716,26 @@ def create_job():
 
     job_id = uuid.uuid4().hex[:12]
     out_dir = job_dir(job_id)
-    out_dir.mkdir(parents=True, exist_ok=True)
-    filename = secure_filename(file.filename) or "audio"
-    upload_path = out_dir / filename
-    file.save(upload_path)
+    src_dir = source_dir(job_id)
+    src_dir.mkdir(parents=True, exist_ok=True)
+    source_url = ""
+    try:
+        if source_type in {"file", "live"}:
+            file = request.files.get("audio")
+            if file is None or not file.filename:
+                message = "Stop recording before starting transcription." if source_type == "live" else "Choose an audio file."
+                return jsonify({"error": message}), 400
+            fallback = "live-recording.webm" if source_type == "live" else "audio"
+            filename = secure_filename(file.filename) or fallback
+            source_path = src_dir / filename
+            file.save(source_path)
+        else:
+            source_url = request.form.get("source_url", "").strip()
+            if not source_url:
+                return jsonify({"error": "Enter a media URL."}), 400
+            source_path = download_url_to_source(source_url, src_dir)
+    except Exception as exc:
+        return jsonify({"error": f"Cannot prepare source audio: {exc}"}), 400
 
     job = Job(
         id=job_id,
@@ -690,6 +743,11 @@ def create_job():
         output_format=output_format,
         output_location=str(chosen_output_base / job_id),
         terminology=terminology,
+        source_type=source_type,
+        source_name=source_path.name,
+        source_path=str(source_path),
+        source_url=source_url,
+        saved_source_filename=source_path.name,
     )
     with jobs_lock:
         jobs[job_id] = job
@@ -697,7 +755,7 @@ def create_job():
 
     thread = threading.Thread(
         target=run_transcription,
-        args=(job_id, upload_path, language, output_format, str(chosen_output_base), terminology),
+        args=(job_id, source_path, language, output_format, str(chosen_output_base), terminology),
         daemon=True,
     )
     thread.start()
@@ -788,6 +846,7 @@ def download(job_id: str, filename: str):
     search_dirs = []
     if output_location:
         search_dirs.append(Path(output_location))
+    search_dirs.append(source_dir(job_id))
     search_dirs.append(job_dir(job_id))
     path = next((folder / safe_name for folder in search_dirs if (folder / safe_name).is_file()), job_dir(job_id) / safe_name)
     if not path.exists() or not path.is_file():

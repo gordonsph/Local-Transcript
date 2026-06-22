@@ -1,5 +1,9 @@
 const form = document.getElementById("uploadForm");
+const sourceType = document.getElementById("sourceType");
+const sourceButtons = Array.from(document.querySelectorAll(".source-tab"));
+const sourcePanels = Array.from(document.querySelectorAll(".source-panel"));
 const audioInput = document.getElementById("audio");
+const sourceUrl = document.getElementById("sourceUrl");
 const fileName = document.getElementById("fileName");
 const dropzone = document.getElementById("dropzone");
 const startButton = document.getElementById("startButton");
@@ -12,6 +16,7 @@ const spinner = document.getElementById("spinner");
 const barFill = document.getElementById("barFill");
 const systemStatus = document.getElementById("systemStatus");
 const savedPath = document.getElementById("savedPath");
+const sourcePath = document.getElementById("sourcePath");
 const percentDone = document.getElementById("percentDone");
 const eta = document.getElementById("eta");
 const elapsed = document.getElementById("elapsed");
@@ -22,18 +27,169 @@ const cpuUsage = document.getElementById("cpuUsage");
 const ramUsage = document.getElementById("ramUsage");
 const loadUsage = document.getElementById("loadUsage");
 const gpuUsage = document.getElementById("gpuUsage");
+const recordButton = document.getElementById("recordButton");
+const stopRecordButton = document.getElementById("stopRecordButton");
+const recordingTimer = document.getElementById("recordingTimer");
+const recordingStatus = document.getElementById("recordingStatus");
+const recordingTitle = document.getElementById("recordingTitle");
+const liveWaveform = document.getElementById("liveWaveform");
+const installButton = document.getElementById("installButton");
+const installDialog = document.getElementById("installDialog");
+const browserInstallButton = document.getElementById("browserInstallButton");
 
 let pollTimer = null;
 let currentJobId = null;
+let currentSource = "file";
+let isSubmitting = false;
+let mediaRecorder = null;
+let mediaStream = null;
+let recordedBlob = null;
+let recordedName = "";
+let recordedChunks = [];
+let recordingStartedAt = 0;
+let recordingTimerId = null;
+let deferredInstallPrompt = null;
+const modelReady = !startButton.disabled;
 
 function setFileLabel() {
   const file = audioInput.files[0];
   fileName.textContent = file ? file.name : "Choose audio";
+  updatePrimaryAction();
 }
 
 function setBusy(isBusy) {
-  startButton.disabled = isBusy;
-  startButton.textContent = isBusy ? "Running..." : "Start transcript";
+  isSubmitting = isBusy;
+  updatePrimaryAction();
+}
+
+function formatClock(seconds) {
+  seconds = Math.max(0, Math.floor(seconds));
+  const minutes = Math.floor(seconds / 60);
+  const rest = seconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(rest).padStart(2, "0")}`;
+}
+
+function activeSourceLabel() {
+  if (currentSource === "url") return "Import URL";
+  if (currentSource === "live") return recordedBlob ? "Save & transcribe recording" : "Record first";
+  return "Start transcript";
+}
+
+function sourceReady() {
+  if (currentSource === "file") return Boolean(audioInput.files[0]);
+  if (currentSource === "url") return Boolean(sourceUrl.value.trim());
+  return Boolean(recordedBlob);
+}
+
+function updatePrimaryAction() {
+  startButton.textContent = isSubmitting ? "Running..." : activeSourceLabel();
+  startButton.disabled = isSubmitting || !modelReady || !sourceReady();
+  sourceButtons.forEach((button) => {
+    button.disabled = isSubmitting;
+  });
+  if (recordButton) {
+    recordButton.disabled = isSubmitting || Boolean(mediaRecorder);
+  }
+  if (stopRecordButton) {
+    stopRecordButton.disabled = !mediaRecorder;
+  }
+}
+
+function switchSource(nextSource) {
+  currentSource = nextSource;
+  sourceType.value = nextSource;
+  sourceButtons.forEach((button) => {
+    const active = button.dataset.source === nextSource;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+  sourcePanels.forEach((panel) => {
+    panel.hidden = panel.dataset.panel !== nextSource;
+  });
+  updatePrimaryAction();
+}
+
+function recordingMimeType() {
+  const candidates = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"];
+  return candidates.find((type) => window.MediaRecorder && MediaRecorder.isTypeSupported(type)) || "";
+}
+
+function stopMediaStream() {
+  if (!mediaStream) return;
+  for (const track of mediaStream.getTracks()) {
+    track.stop();
+  }
+  mediaStream = null;
+}
+
+function stopRecordingTimer() {
+  clearInterval(recordingTimerId);
+  recordingTimerId = null;
+}
+
+function setRecordingState(state, message) {
+  recordingStatus.textContent = message;
+  liveWaveform.classList.toggle("recording", state === "recording");
+  liveWaveform.classList.toggle("ready", state === "ready");
+}
+
+function buildRecordingName() {
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+  const extension = recordingMimeType().includes("mp4") ? "mp4" : "webm";
+  return `live-recording-${stamp}.${extension}`;
+}
+
+async function startRecording() {
+  if (!navigator.mediaDevices || !window.MediaRecorder) {
+    setRecordingState("error", "Recording is not available in this browser.");
+    return;
+  }
+  try {
+    recordedBlob = null;
+    recordedName = "";
+    recordedChunks = [];
+    mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const mimeType = recordingMimeType();
+    mediaRecorder = new MediaRecorder(mediaStream, mimeType ? { mimeType } : undefined);
+    mediaRecorder.addEventListener("dataavailable", (event) => {
+      if (event.data && event.data.size) {
+        recordedChunks.push(event.data);
+      }
+    });
+    mediaRecorder.addEventListener("stop", () => {
+      const blobType = mediaRecorder.mimeType || mimeType || "audio/webm";
+      recordedBlob = new Blob(recordedChunks, { type: blobType });
+      recordedName = buildRecordingName();
+      mediaRecorder = null;
+      stopMediaStream();
+      stopRecordingTimer();
+      recordingTitle.textContent = recordedName;
+      setRecordingState("ready", `Recorded ${formatClock((Date.now() - recordingStartedAt) / 1000)}. Source audio will be saved with the job.`);
+      updatePrimaryAction();
+    });
+    recordingStartedAt = Date.now();
+    recordingTimer.textContent = "00:00";
+    recordingTimerId = setInterval(() => {
+      recordingTimer.textContent = formatClock((Date.now() - recordingStartedAt) / 1000);
+    }, 250);
+    mediaRecorder.start();
+    setRecordingState("recording", "Recording");
+    updatePrimaryAction();
+  } catch (error) {
+    stopMediaStream();
+    mediaRecorder = null;
+    stopRecordingTimer();
+    setRecordingState("error", error.message || "Microphone permission was not granted.");
+    updatePrimaryAction();
+  }
+}
+
+function stopRecording() {
+  if (mediaRecorder && mediaRecorder.state !== "inactive") {
+    mediaRecorder.stop();
+    setRecordingState("saving", "Saving recording");
+  }
+  updatePrimaryAction();
 }
 
 function progressFromMessage(message) {
@@ -64,8 +220,12 @@ function renderSystem(job) {
 function renderJob(job) {
   jobPanel.hidden = false;
   jobTitle.textContent = job.message || job.status;
-  jobMeta.textContent = `${job.language_label} · ${job.output_format_label}`;
+  const sourceLabel = job.source_name ? `${job.source_type || "file"} · ${job.source_name}` : job.source_type || "file";
+  const languageLabel = job.language_label || "Language pending";
+  const formatLabel = job.output_format_label || "Output pending";
+  jobMeta.textContent = `${sourceLabel} · ${languageLabel} · ${formatLabel}`;
   savedPath.textContent = job.output_location ? `Saved to ${job.output_location}` : "";
+  sourcePath.textContent = job.source_path ? `Source stored at ${job.source_path}` : "";
   const progress = Number(job.progress || 0);
   percentDone.textContent = `${progress.toFixed(0)}%`;
   eta.textContent = job.eta_label || (job.status === "done" ? "0s" : "Calculating");
@@ -85,6 +245,12 @@ function renderJob(job) {
       link.textContent = label;
       downloads.appendChild(link);
     }
+  }
+  if (job.saved_source_filename) {
+    const sourceLink = document.createElement("a");
+    sourceLink.href = `/download/${job.id}/${encodeURIComponent(job.saved_source_filename)}`;
+    sourceLink.textContent = job.source_type === "live" ? "Source recording" : "Source audio";
+    downloads.appendChild(sourceLink);
   }
 
   if (job.status === "done") {
@@ -121,6 +287,13 @@ async function controlJob(action) {
 }
 
 audioInput.addEventListener("change", setFileLabel);
+sourceUrl.addEventListener("input", updatePrimaryAction);
+recordButton.addEventListener("click", startRecording);
+stopRecordButton.addEventListener("click", stopRecording);
+
+for (const button of sourceButtons) {
+  button.addEventListener("click", () => switchSource(button.dataset.source));
+}
 
 for (const eventName of ["dragenter", "dragover"]) {
   dropzone.addEventListener(eventName, (event) => {
@@ -147,7 +320,7 @@ dropzone.addEventListener("drop", (event) => {
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
-  if (!audioInput.files[0]) return;
+  if (!sourceReady()) return;
 
   setBusy(true);
   spinner.classList.remove("done");
@@ -160,6 +333,13 @@ form.addEventListener("submit", async (event) => {
   barFill.style.transform = "scaleX(0.08)";
 
   const body = new FormData(form);
+  body.set("source_type", currentSource);
+  if (currentSource === "url") {
+    body.delete("audio");
+  } else if (currentSource === "live") {
+    body.delete("audio");
+    body.set("audio", recordedBlob, recordedName || "live-recording.webm");
+  }
   const response = await fetch("/api/jobs", { method: "POST", body });
   const job = await response.json();
   if (!response.ok) {
@@ -176,3 +356,21 @@ form.addEventListener("submit", async (event) => {
 pauseButton.addEventListener("click", () => controlJob("pause"));
 resumeButton.addEventListener("click", () => controlJob("resume"));
 terminateButton.addEventListener("click", () => controlJob("terminate"));
+installButton.addEventListener("click", () => {
+  if (installDialog.showModal) {
+    installDialog.showModal();
+  }
+});
+browserInstallButton.addEventListener("click", async () => {
+  if (!deferredInstallPrompt) return;
+  deferredInstallPrompt.prompt();
+  await deferredInstallPrompt.userChoice;
+  deferredInstallPrompt = null;
+  browserInstallButton.hidden = true;
+});
+window.addEventListener("beforeinstallprompt", (event) => {
+  event.preventDefault();
+  deferredInstallPrompt = event;
+  browserInstallButton.hidden = false;
+});
+updatePrimaryAction();

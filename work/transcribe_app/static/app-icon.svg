@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Local Transcript">
+  <rect width="512" height="512" rx="96" fill="#0b7f68"/>
+  <rect x="118" y="108" width="276" height="296" rx="34" fill="#ffffff"/>
+  <path d="M176 176h160M176 226h160M176 276h112" stroke="#111827" stroke-width="24" stroke-linecap="round"/>
+  <path d="M168 352c34-42 62-42 96 0s62 42 96 0" fill="none" stroke="#0b7f68" stroke-width="24" stroke-linecap="round"/>
+</svg>

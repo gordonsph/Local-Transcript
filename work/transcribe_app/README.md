@@ -15,6 +15,7 @@ Lightweight local frontend for `whisper.cpp` with the full `large-v3` model.
 
 User-facing:
 
+- Source mode: file upload, direct media URL, or live browser recording
 - Language
 - Output format
 - Result folder
@@ -42,6 +43,22 @@ Open:
 
 ```text
 http://127.0.0.1:5057
+```
+
+## Install As Mac Web App
+
+Open `http://127.0.0.1:5057/`, then use the app's **Install app** button for current macOS browser steps.
+
+Safari:
+
+```text
+File or Share > Add to Dock > Add
+```
+
+Chrome:
+
+```text
+More > Cast, save, and share > Install page as app
 ```
 
 Persistent hosting uses a macOS LaunchAgent. See:
@@ -75,6 +92,12 @@ Temporary job files are saved under:
 
 ```text
 outputs/transcribe_app/jobs/<job-id>/
+```
+
+Original source files, URL downloads, and live recording audio are saved under:
+
+```text
+outputs/transcribe_app/jobs/<job-id>/source/
 ```
 
 ## Persistent Install

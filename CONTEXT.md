@@ -85,6 +85,46 @@ Operational UI:
 - Show pause, continue, and terminate controls.
 - Show live process CPU/RAM, system load, and Metal/GPU status.
 
+## 2026-06-22 Source Workspace Update
+
+The app now follows a segmented source workspace inspired by the user's Buzz and macOS Voice Memos recordings.
+
+New source modes:
+
+- File upload: existing local upload flow, now saved under each job's `source/` folder.
+- URL import: accepts a direct `http` or `https` media URL, downloads it into the local job `source/` folder, then runs the existing transcription pipeline.
+- Live recording: records microphone audio in the browser with `MediaRecorder`; after the user stops recording, the captured audio is uploaded, saved in the local job `source/` folder, then transcribed.
+
+UI reference decisions:
+
+- Use a Voice Memos-like source rail with File, URL, and Live options.
+- Use a detail pane with a recording title, timer, waveform-like strip, and compact Record/Stop controls for live recording.
+- Keep Advanced Settings inline and read-only for fixed quality settings: `whisper.cpp`, `large-v3`, transcribe task, Silero VAD status, beam 5, best-of 5, translation off.
+- Continue not to expose speed/quality tradeoff knobs unless the user explicitly asks.
+
+Source persistence:
+
+```text
+outputs/transcribe_app/jobs/<job-id>/source/<source-file>
+```
+
+The job JSON records `source_type`, `source_name`, `source_path`, `source_url`, and `saved_source_filename`. The UI shows the source path and offers a source download link separate from generated transcript outputs.
+
+## 2026-06-22 Web App Install Option
+
+The UI now includes an `Install app` action for creating a macOS Dock-style web app. The app provides:
+
+- `work/transcribe_app/static/manifest.webmanifest`
+- `work/transcribe_app/static/app-icon.svg`
+- PWA metadata links in the HTML head
+- A native `<dialog>` with Safari and Chrome instructions
+
+Important limitation:
+
+- A local web app cannot silently add itself to the macOS Dock. The user must complete the browser-controlled install step.
+- Safari on macOS Sonoma or later supports File or Share > Add to Dock.
+- Chrome supports More > Cast, save, and share > Install page as app.
+
 ## Learning Over Time
 
 Do not try to make the lightweight app fine-tune Whisper weights day to day.
