@@ -2,16 +2,18 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
   "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!--
-  Entitlements for signing Local Transcript.app.
+  NOT USED by the current distribution. The app ships ad-hoc signed WITHOUT the
+  hardened runtime (free, non-notarized), where mic capture works via the
+  NSMicrophoneUsageDescription string alone and ad-hoc dylibs load without
+  library-validation enforcement — so no entitlements are required.
 
-  Required at notarization time (Phase 4) when the hardened runtime is enabled:
-  - device.audio-input: lets the WebView capture the microphone (Live recording).
+  This set is kept only for a hypothetical FUTURE notarized build (which would
+  require an Apple Developer ID + the hardened runtime). If that ever happens:
+  - device.audio-input: microphone capture under hardened runtime.
   - cs.allow-unsigned-executable-memory / cs.disable-library-validation: the
-    bundled CPython and its C extensions (PyAV/ffmpeg, numpy) load and JIT code
-    that the hardened runtime blocks by default.
-
-  Not used for day-to-day dev builds (the app runs unsigned there); apply with:
-    codesign --force --options runtime --entitlements entitlements.plist ...
+    bundled CPython + C extensions (PyAV/ffmpeg, numpy) need these under hardened
+    runtime. Apply with:
+      codesign --force --options runtime --entitlements entitlements.plist ...
 -->
 <plist version="1.0">
 <dict>

@@ -38,7 +38,10 @@ def tree_data_files(*dir_names: str) -> list[tuple[str, list[str]]]:
 
 APP = ["shell.py"]
 
-DATA_FILES = tree_data_files("templates", "static")
+# whisper-runtime holds the relocated, signed whisper-cli + its dylibs (produced
+# by work/relocate_whisper.sh). Bundling it lands the binary at
+# Contents/Resources/whisper-runtime/, where app.py resolves WHISPER_CLI when frozen.
+DATA_FILES = tree_data_files("templates", "static", "whisper-runtime")
 
 # Copy these packages wholesale. Tracing individual modules misses PyAV's
 # bundled ffmpeg dylibs (av/.dylibs) and opencc's dictionary/config data, so we

@@ -13,9 +13,13 @@ Run directly during development:
 from __future__ import annotations
 
 import atexit
+import os
 import socket
+import subprocess
+import sys
 import threading
 import time
+from pathlib import Path
 from urllib.error import URLError
 from urllib.request import urlopen
 
@@ -63,6 +67,37 @@ HEALTH_PATH = "/api/health"
 STARTUP_TIMEOUT_SECONDS = 15
 
 
+def _declassify_bundle() -> None:
+    """Strip the Gatekeeper quarantine flag from our own .app on launch.
+
+    When a user downloads the app, macOS quarantines every nested file. Approving
+    the app ("Open Anyway") only clears the MAIN executable LaunchServices starts;
+    the whisper-cli we later spawn via subprocess would otherwise hang on an
+    unresolved Gatekeeper assessment. An app may declassify its own bundle, so we
+    remove the flag recursively (covers whisper-cli + its dylibs). No-op in source
+    mode and when running translocated (a read-only randomized mount — the user
+    must move the app to /Applications first).
+    """
+    if not getattr(sys, "frozen", False):
+        return
+    resource = os.environ.get("RESOURCEPATH")
+    if not resource:
+        return
+    bundle = Path(resource).resolve().parent.parent  # Contents/Resources -> .app
+    if "/AppTranslocation/" in str(bundle):
+        return
+    try:
+        subprocess.run(
+            ["xattr", "-dr", "com.apple.quarantine", str(bundle)],
+            check=False,
+            timeout=30,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except Exception:
+        pass  # best-effort; never block launch on this
+
+
 def _free_port() -> int:
     """Ask the OS for an unused TCP port on the loopback interface."""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
@@ -102,6 +137,8 @@ class FlaskServer:
 
 
 def main() -> None:
+    _declassify_bundle()
+
     server = FlaskServer("127.0.0.1", _free_port())
     server.start()
 
