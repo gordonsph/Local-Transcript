@@ -14,8 +14,8 @@
   --on-accent: #ffffff;
 
   --label: rgba(0, 0, 0, 0.88);     /* primary text — ~15:1 on content glass */
-  --label-2: rgba(0, 0, 0, 0.56);   /* secondary — AA on the opaque content pane */
-  --label-3: rgba(0, 0, 0, 0.40);   /* tertiary / icons */
+  --label-2: rgba(0, 0, 0, 0.62);   /* secondary text — AA on content AND on the translucent sidebar */
+  --label-3: rgba(0, 0, 0, 0.40);   /* icons/chevrons/disabled ONLY — never readable body text */
   --sep: rgba(0, 0, 0, 0.10);
   --sep-strong: rgba(0, 0, 0, 0.16);
 
@@ -29,7 +29,7 @@
   --green: #2faf6a;
   --orange: #c2810a;
   --rec: #e0463f;
-  --danger: #c0362c;
+  --danger: #a82a20;
   --danger-bg: rgba(224, 70, 63, 0.08);
   --danger-line: rgba(224, 70, 63, 0.28);
 
@@ -61,8 +61,8 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --label: rgba(255, 255, 255, 0.92);
-    --label-2: rgba(255, 255, 255, 0.60);
-    --label-3: rgba(255, 255, 255, 0.42);
+    --label-2: rgba(255, 255, 255, 0.66);
+    --label-3: rgba(255, 255, 255, 0.45);
     --sep: rgba(255, 255, 255, 0.10);
     --sep-strong: rgba(255, 255, 255, 0.16);
 
@@ -171,7 +171,9 @@ h1, h2, p { margin: 0; }
 .meta { margin-top: 1px; font-size: 11.5px; color: var(--label-2); }
 
 .side-section {
-  font-size: 11px; font-weight: 600; color: var(--label-3);
+  /* Readable group header on translucent sidebar glass — must use --label-2,
+     not the icon-only --label-3 (which fails WCAG AA over the wallpaper). */
+  font-size: 11px; font-weight: 600; color: var(--label-2);
   text-transform: uppercase; letter-spacing: 0.05em;
   padding: 12px 18px 5px;
 }
@@ -194,7 +196,10 @@ h1, h2, p { margin: 0; }
 .tab-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
 .tab-title { font-size: 13.5px; font-weight: 500; }
 .tab-text small { font-size: 11px; color: var(--label-2); }
-.source-tab.active .tab-text small { color: rgba(255, 255, 255, 0.78); }
+/* Use the theme's on-accent ink (white in light, near-black in dark) so the
+   sublabel stays legible on the teal pill in BOTH themes; de-emphasis is via the
+   smaller font size, not a contrast-lowering opacity. */
+.source-tab.active .tab-text small { color: var(--on-accent); }
 .source-tab:disabled { opacity: 0.5; cursor: not-allowed; }
 .source-tab:disabled:hover { background: transparent; }
 
@@ -213,6 +218,16 @@ h1, h2, p { margin: 0; }
   width: 8px; height: 8px; flex: none; border-radius: 50%;
   background: var(--green); box-shadow: 0 0 0 3px rgba(47, 175, 106, 0.18);
 }
+/* The dot reflects state, set via [data-state] from app.js (sidebar pill AND
+   the toolbar badge, kept in sync so the two indicators never disagree). */
+.status-pill[data-state="busy"] .status-dot,
+.tb-status[data-state="busy"] .status-dot { background: var(--orange); box-shadow: 0 0 0 3px rgba(194, 129, 10, 0.2); }
+.status-pill[data-state="paused"] .status-dot,
+.tb-status[data-state="paused"] .status-dot { background: var(--orange); box-shadow: 0 0 0 3px rgba(194, 129, 10, 0.2); }
+.status-pill[data-state="pending"] .status-dot,
+.tb-status[data-state="pending"] .status-dot { background: var(--orange); box-shadow: 0 0 0 3px rgba(194, 129, 10, 0.2); }
+.status-pill[data-state="error"] .status-dot,
+.tb-status[data-state="error"] .status-dot { background: var(--rec); box-shadow: 0 0 0 3px rgba(224, 70, 63, 0.22); }
 .privacy-chip {
   display: flex; align-items: center; gap: 6px;
   font-size: 11.5px; color: var(--label-2);
@@ -274,7 +289,7 @@ h1, h2, p { margin: 0; }
 .drop-icon svg { width: 22px; height: 22px; }
 .drop-title { font-size: 16px; font-weight: 600; letter-spacing: -0.005em; overflow-wrap: anywhere; }
 .drop-sub { font-size: 12.5px; color: var(--label-2); }
-.drop-formats { display: block; margin-top: 6px; font-family: var(--mono); font-size: 11px; color: var(--label-3); }
+.drop-formats { display: block; margin-top: 6px; font-family: var(--mono); font-size: 11px; color: var(--label-2); }
 
 /* ── Cards & grouped rows (System-Settings style) ── */
 .card {
@@ -310,7 +325,7 @@ select.macsel {
 }
 textarea.rowinput { resize: vertical; min-height: 38px; line-height: 1.45; font-family: var(--font); }
 #outputLocation { font-family: var(--mono); font-size: 12px; }
-::placeholder { color: var(--label-3); opacity: 1; }
+::placeholder { color: var(--label-2); opacity: 1; }
 
 select.macsel:hover, .rowinput:hover { border-color: var(--accent); }
 
@@ -368,7 +383,7 @@ select.macsel:hover, .rowinput:hover { border-color: var(--accent); }
 .summary-label { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; color: var(--label-2); }
 .chevron { width: 14px; height: 14px; color: var(--label-3); transition: transform var(--dur) var(--ease); }
 .advanced-settings[open] .chevron { transform: rotate(90deg); }
-.advanced-settings > summary strong { font-family: var(--mono); font-size: 11.5px; font-weight: 500; color: var(--label-3); }
+.advanced-settings > summary strong { font-family: var(--mono); font-size: 11.5px; font-weight: 500; color: var(--label-2); }
 .advanced-grid .row { min-height: 40px; }
 .advanced-grid .rvalue { font-family: var(--mono); font-size: 12px; }
 

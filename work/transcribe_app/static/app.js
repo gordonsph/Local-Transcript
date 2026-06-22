@@ -15,6 +15,19 @@ const downloads = document.getElementById("downloads");
 const spinner = document.getElementById("spinner");
 const barFill = document.getElementById("barFill");
 const systemStatus = document.getElementById("systemStatus");
+const statusPill = document.getElementById("statusPill");
+const tbStatus = document.getElementById("tbStatus");
+const tbStatusText = document.getElementById("tbStatusText");
+
+// Update the global status text AND the colored dot (green=ready, amber=busy/
+// paused/pending, red=error) so the indicator never lies about app state.
+// Both indicators — the sidebar pill and the toolbar badge — move together.
+function setStatus(text, state) {
+  systemStatus.textContent = text;
+  if (statusPill && state) statusPill.dataset.state = state;
+  if (tbStatusText) tbStatusText.textContent = text;
+  if (tbStatus && state) tbStatus.dataset.state = state;
+}
 const savedPath = document.getElementById("savedPath");
 const sourcePath = document.getElementById("sourcePath");
 const percentDone = document.getElementById("percentDone");
@@ -89,6 +102,12 @@ function updatePrimaryAction() {
   sourceButtons.forEach((button) => {
     button.disabled = isSubmitting;
   });
+  // Lock the job settings while a transcription is running so they visibly can't
+  // be edited mid-run (they only apply at submit time anyway).
+  for (const id of ["language", "format", "outputLocation", "terminology", "sourceUrl"]) {
+    const el = document.getElementById(id);
+    if (el) el.disabled = isSubmitting;
+  }
   if (recordButton) {
     recordButton.disabled = isSubmitting || Boolean(mediaRecorder);
   }
@@ -98,6 +117,16 @@ function updatePrimaryAction() {
 }
 
 function switchSource(nextSource) {
+  // Never leave the mic live behind a hidden panel: if the user is recording on
+  // the Live tab and switches away, stop the recorder (and release the stream)
+  // first — otherwise the stop control disappears and the mic stays hot.
+  if (nextSource !== "live" && (mediaRecorder || mediaStream)) {
+    if (mediaRecorder && mediaRecorder.state !== "inactive") {
+      mediaRecorder.stop();  // 'stop' handler clears mediaRecorder + stream
+    } else {
+      stopMediaStream();
+    }
+  }
   currentSource = nextSource;
   sourceType.value = nextSource;
   sourceButtons.forEach((button) => {
@@ -216,7 +245,7 @@ function renderSystem(job) {
   cpuUsage.textContent = process.cpu_percent != null ? `${process.cpu_percent.toFixed(0)}% process` : "Waiting";
   ramUsage.textContent = process.rss_mb != null ? `${process.rss_mb} MB · ${memory.free_mb || "?"} MB free` : "Waiting";
   loadUsage.textContent = load["1m"] != null ? `${load["1m"]} / ${system.cpu_count || "?"} cores` : "Waiting";
-  gpuUsage.textContent = "Metal active";
+  gpuUsage.textContent = "Metal";
 }
 
 function renderJob(job) {
@@ -259,19 +288,28 @@ function renderJob(job) {
     setBusy(false);
     spinner.classList.add("done");
     barFill.style.transform = "scaleX(1)";
-    systemStatus.textContent = "Ready";
+    setStatus("Ready", "ready");
     clearInterval(pollTimer);
   } else if (job.status === "failed" || job.status === "cancelled") {
     setBusy(false);
     spinner.classList.add("done");
-    jobTitle.innerHTML = `<span class="error">${job.error || job.message || "Stopped"}</span>`;
-    systemStatus.textContent = "Ready";
+    // textContent, not innerHTML — job.error is server text and must never be
+    // interpreted as HTML.
+    jobTitle.textContent = "";
+    const span = document.createElement("span");
+    span.className = "error";
+    span.textContent = job.error || job.message || "Stopped";
+    jobTitle.appendChild(span);
+    setStatus("Ready", "ready");
     clearInterval(pollTimer);
   } else if (job.status === "paused") {
     spinner.classList.add("done");
-    systemStatus.textContent = "Paused";
+    setStatus("Paused", "paused");
   } else {
+    // queued / preparing / running / finalizing / cancelling — keep the pill in
+    // sync so it can't get stuck on a stale "Paused" after a resume.
     spinner.classList.remove("done");
+    setStatus(job.status === "cancelling" ? "Cancelling" : "Busy", "busy");
   }
 }
 
@@ -302,7 +340,7 @@ async function controlJob(action) {
     if (!response.ok) throw new Error(job.error || `status ${response.status}`);
     renderJob(job);
   } catch (error) {
-    systemStatus.textContent = `Could not ${action}`;
+    setStatus(`Could not ${action}`, "error");
   }
 }
 
@@ -341,12 +379,16 @@ dropzone.addEventListener("drop", (event) => {
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (!sourceReady()) return;
+  if (currentSource === "live" && (!recordedBlob || recordedBlob.size === 0)) {
+    setRecordingState("error", "That recording is empty — record again.");
+    return;
+  }
 
   setBusy(true);
   spinner.classList.remove("done");
   downloads.innerHTML = "";
   log.textContent = "";
-  systemStatus.textContent = "Busy";
+  setStatus("Busy", "busy");
   jobPanel.hidden = false;
   jobTitle.textContent = "Uploading";
   jobMeta.textContent = "Preparing";
@@ -379,6 +421,15 @@ form.addEventListener("submit", async (event) => {
   pollFailures = 0;
   clearInterval(pollTimer);
   pollTimer = setInterval(() => pollJob(job.id), 2500);
+
+  // Consume the live recording so it can't be silently re-submitted to a 2nd job.
+  if (currentSource === "live") {
+    recordedBlob = null;
+    recordedName = "";
+    recordedChunks = [];
+    setRecordingState("idle", "Ready when you are.");
+    updatePrimaryAction();
+  }
 });
 
 pauseButton.addEventListener("click", () => controlJob("pause"));
@@ -483,7 +534,7 @@ if (setupPanel) {
     modelReady = true;
     startButton.disabled = false;
     setupPanel.hidden = true;
-    systemStatus.textContent = "Ready";
+    setStatus("Ready", "ready");
     updatePrimaryAction();
   }
 
@@ -498,7 +549,11 @@ if (setupPanel) {
       http: "The download server returned an error. Please retry in a moment.",
     };
     const message = byKind[state.error_kind] || state.error || "Download failed.";
-    setupMessage.innerHTML = `<span class="error">${message}</span>`;
+    setupMessage.textContent = "";
+    const span = document.createElement("span");
+    span.className = "error";
+    span.textContent = message;  // textContent, never innerHTML, for server text
+    setupMessage.appendChild(span);
     downloadModelButton.hidden = false;
     downloadModelButton.textContent = "Retry download";
   }

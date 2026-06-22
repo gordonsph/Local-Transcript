@@ -56,7 +56,7 @@
 
           <div class="side-foot">
             <button type="button" class="install-button" id="installButton">Install app</button>
-            <div class="status-pill" id="statusPill">
+            <div class="status-pill" id="statusPill" data-state="{{ 'ready' if model_ready else 'pending' }}">
               <span class="status-dot" aria-hidden="true"></span>
               <span id="systemStatus">{{ "Ready" if model_ready else "Model pending" }}</span>
             </div>
@@ -71,7 +71,7 @@
         <div class="main">
           <div class="toolbar">
             <h2 class="toolbar-title" id="toolbarTitle">New transcript</h2>
-            <div class="tb-status"><span class="status-dot" aria-hidden="true"></span>{{ "Ready" if model_ready else "Setup" }}</div>
+            <div class="tb-status" id="tbStatus" data-state="{{ 'ready' if model_ready else 'pending' }}"><span class="status-dot" aria-hidden="true"></span><span id="tbStatusText">{{ "Ready" if model_ready else "Model pending" }}</span></div>
           </div>
 
           <div class="scroll">
@@ -233,7 +233,7 @@
                 <div class="readout"><span>CPU</span><strong id="cpuUsage">Waiting</strong></div>
                 <div class="readout"><span>RAM</span><strong id="ramUsage">Waiting</strong></div>
                 <div class="readout"><span>Load</span><strong id="loadUsage">Waiting</strong></div>
-                <div class="readout"><span>GPU</span><strong id="gpuUsage">Metal ready</strong></div>
+                <div class="readout"><span>GPU</span><strong id="gpuUsage">Metal</strong></div>
               </div>
               <div class="controls" id="jobControls">
                 <button type="button" class="secondary" id="pauseButton" disabled>Pause</button>
