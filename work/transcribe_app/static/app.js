@@ -49,6 +49,7 @@ let recordedChunks = [];
 let recordingStartedAt = 0;
 let recordingTimerId = null;
 let deferredInstallPrompt = null;
+let pollFailures = 0;
 const modelReady = !startButton.disabled;
 
 function setFileLabel() {
@@ -274,16 +275,34 @@ function renderJob(job) {
 }
 
 async function pollJob(jobId) {
-  const response = await fetch(`/api/jobs/${jobId}`);
-  const job = await response.json();
-  renderJob(job);
+  // Tolerate transient hiccups; only declare the job lost after several
+  // consecutive failures so one dropped request doesn't kill a live job.
+  try {
+    const response = await fetch(`/api/jobs/${jobId}`);
+    if (!response.ok) throw new Error(`status ${response.status}`);
+    const job = await response.json();
+    pollFailures = 0;
+    renderJob(job);
+  } catch (error) {
+    pollFailures += 1;
+    if (pollFailures >= 3) {
+      renderJob({ status: "failed", error: "Lost connection to the local service.", log: [], files: {} });
+    }
+  }
 }
 
 async function controlJob(action) {
   if (!currentJobId) return;
-  const response = await fetch(`/api/jobs/${currentJobId}/${action}`, { method: "POST" });
-  const job = await response.json();
-  renderJob(job);
+  // A failed control request does not mean the job itself failed, so surface a
+  // transient notice and let polling reflect the true state — don't nuke the job.
+  try {
+    const response = await fetch(`/api/jobs/${currentJobId}/${action}`, { method: "POST" });
+    const job = await response.json();
+    if (!response.ok) throw new Error(job.error || `status ${response.status}`);
+    renderJob(job);
+  } catch (error) {
+    systemStatus.textContent = `Could not ${action}`;
+  }
 }
 
 audioInput.addEventListener("change", setFileLabel);
@@ -340,8 +359,15 @@ form.addEventListener("submit", async (event) => {
     body.delete("audio");
     body.set("audio", recordedBlob, recordedName || "live-recording.webm");
   }
-  const response = await fetch("/api/jobs", { method: "POST", body });
-  const job = await response.json();
+  let response;
+  let job;
+  try {
+    response = await fetch("/api/jobs", { method: "POST", body });
+    job = await response.json();
+  } catch (error) {
+    renderJob({ status: "failed", error: "Could not reach the local service.", log: [], files: {} });
+    return;
+  }
   if (!response.ok) {
     renderJob({ status: "failed", error: job.error || "Upload failed", log: [], files: {} });
     return;
@@ -349,6 +375,7 @@ form.addEventListener("submit", async (event) => {
 
   renderJob(job);
   currentJobId = job.id;
+  pollFailures = 0;
   clearInterval(pollTimer);
   pollTimer = setInterval(() => pollJob(job.id), 2500);
 });
@@ -361,10 +388,24 @@ installButton.addEventListener("click", () => {
     installDialog.showModal();
   }
 });
+// Inside the native .app shell there is no browser to "install" into, so hide
+// the PWA add-to-dock button. pywebview exposes window.pywebview; it may be
+// injected just after this script runs, so also re-check on pywebviewready.
+function hideInstallButtonInNativeShell() {
+  if (typeof window.pywebview !== "undefined") {
+    installButton.hidden = true;
+  }
+}
+hideInstallButtonInNativeShell();
+window.addEventListener("pywebviewready", hideInstallButtonInNativeShell);
 browserInstallButton.addEventListener("click", async () => {
   if (!deferredInstallPrompt) return;
-  deferredInstallPrompt.prompt();
-  await deferredInstallPrompt.userChoice;
+  try {
+    deferredInstallPrompt.prompt();
+    await deferredInstallPrompt.userChoice;
+  } catch (error) {
+    // Ignore — the prompt was dismissed or is unavailable.
+  }
   deferredInstallPrompt = null;
   browserInstallButton.hidden = true;
 });

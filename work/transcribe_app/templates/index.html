@@ -4,7 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Local Transcript</title>
-    <meta name="theme-color" content="#0b7f68">
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#0b7f68">
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0b0e0d">
     <link rel="manifest" href="{{ url_for('static', filename='manifest.webmanifest') }}">
     <link rel="icon" href="{{ url_for('static', filename='app-icon.svg') }}" type="image/svg+xml">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='app-icon.svg') }}">
@@ -14,13 +15,27 @@
     <main class="shell">
       <section class="workspace" aria-labelledby="title">
         <header class="topbar">
-          <div>
-            <h1 id="title">Local Transcript</h1>
-            <p class="meta">whisper.cpp · large-v3 · local</p>
+          <div class="brand">
+            <span class="brand-mark" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 3v7"></path>
+                <path d="M8 6.5a4 4 0 0 1 8 0V10a4 4 0 0 1-8 0z" fill="currentColor" stroke="none" opacity="0.16"></path>
+                <path d="M8 6.5a4 4 0 0 1 8 0V10a4 4 0 0 1-8 0z"></path>
+                <path d="M5 11a7 7 0 0 0 14 0"></path>
+                <path d="M12 18v3"></path>
+              </svg>
+            </span>
+            <div>
+              <h1 id="title">Local Transcript</h1>
+              <p class="meta">whisper.cpp <span class="dot-sep">·</span> large-v3 <span class="dot-sep">·</span> on-device</p>
+            </div>
           </div>
           <div class="topbar-actions">
             <button type="button" class="secondary install-button" id="installButton">Install app</button>
-            <div class="status-pill" id="systemStatus">{{ "Ready" if model_ready else "Model pending" }}</div>
+            <div class="status-pill" id="statusPill">
+              <span class="status-dot" aria-hidden="true"></span>
+              <span id="systemStatus">{{ "Ready" if model_ready else "Model pending" }}</span>
+            </div>
           </div>
         </header>
 
@@ -30,16 +45,43 @@
           <div class="source-layout">
             <aside class="source-rail" aria-label="Transcription source">
               <button type="button" class="source-tab active" data-source="file" aria-pressed="true">
-                <span>File</span>
-                <small>Audio or video</small>
+                <span class="tab-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path>
+                    <path d="M14 3v5h5"></path>
+                    <path d="M9 13h6M9 17h4"></path>
+                  </svg>
+                </span>
+                <span class="tab-text">
+                  <span class="tab-title">File</span>
+                  <small>Audio or video</small>
+                </span>
               </button>
               <button type="button" class="source-tab" data-source="url" aria-pressed="false">
-                <span>URL</span>
-                <small>Direct media link</small>
+                <span class="tab-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M9 17H7A5 5 0 0 1 7 7h2"></path>
+                    <path d="M15 7h2a5 5 0 0 1 0 10h-2"></path>
+                    <path d="M8 12h8"></path>
+                  </svg>
+                </span>
+                <span class="tab-text">
+                  <span class="tab-title">URL</span>
+                  <small>Direct media link</small>
+                </span>
               </button>
               <button type="button" class="source-tab" data-source="live" aria-pressed="false">
-                <span>Live</span>
-                <small>Microphone recording</small>
+                <span class="tab-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="9" y="2" width="6" height="12" rx="3"></rect>
+                    <path d="M5 10a7 7 0 0 0 14 0"></path>
+                    <path d="M12 17v4"></path>
+                  </svg>
+                </span>
+                <span class="tab-text">
+                  <span class="tab-title">Live</span>
+                  <small>Microphone recording</small>
+                </span>
               </button>
               <p class="source-note">Sources are saved locally with each job.</p>
             </aside>
@@ -48,13 +90,22 @@
               <section class="source-panel" id="filePanel" data-panel="file">
                 <label class="dropzone" id="dropzone">
                   <input id="audio" name="audio" type="file" accept="audio/*,video/mp4,video/quicktime,.m4a,.mpeg,.mp4,.mov,.webm">
+                  <span class="drop-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M12 16V4"></path>
+                      <path d="m7 9 5-5 5 5"></path>
+                      <path d="M20 16.5A4.5 4.5 0 0 0 17 8.2"></path>
+                      <path d="M5 20h14a2 2 0 0 0 2-2"></path>
+                      <path d="M5 20a2 2 0 0 1-2-2 4.5 4.5 0 0 1 3.2-6.7"></path>
+                    </svg>
+                  </span>
                   <span class="drop-title" id="fileName">Choose audio</span>
-                  <span class="drop-sub">m4a, mp3, wav, mp4, mov, webm</span>
+                  <span class="drop-sub">Drag a file here, or click to browse <span class="drop-formats">m4a · mp3 · wav · mp4 · mov · webm</span></span>
                 </label>
               </section>
 
               <section class="source-panel" id="urlPanel" data-panel="url" hidden>
-                <label>
+                <label class="field">
                   <span>Media URL</span>
                   <input name="source_url" id="sourceUrl" type="url" placeholder="https://example.com/audio.mp3" autocomplete="url">
                 </label>
@@ -63,12 +114,15 @@
 
               <section class="source-panel live-panel" id="livePanel" data-panel="live" hidden>
                 <div class="live-head">
-                  <div>
+                  <div class="live-readout">
                     <span class="recording-title" id="recordingTitle">New recording</span>
                     <strong class="recording-time" id="recordingTimer">00:00</strong>
                   </div>
                   <div class="live-controls">
-                    <button type="button" class="record-button" id="recordButton">Record</button>
+                    <button type="button" class="record-button" id="recordButton">
+                      <span class="rec-dot" aria-hidden="true"></span>
+                      Record
+                    </button>
                     <button type="button" class="secondary" id="stopRecordButton" disabled>Stop</button>
                   </div>
                 </div>
@@ -77,13 +131,13 @@
                   <span></span><span></span><span></span><span></span><span></span><span></span>
                   <span></span><span></span><span></span><span></span><span></span><span></span>
                 </div>
-                <p class="source-state" id="recordingStatus">Ready</p>
+                <p class="source-state" id="recordingStatus">Ready when you are.</p>
               </section>
             </div>
           </div>
 
           <div class="control-grid">
-            <label>
+            <label class="field">
               <span>Language</span>
               <select name="language" id="language">
                 {% for code, label in languages.items() %}
@@ -92,7 +146,7 @@
               </select>
             </label>
 
-            <label>
+            <label class="field">
               <span>Output</span>
               <select name="format" id="format">
                 {% for code, label in formats.items() %}
@@ -101,50 +155,59 @@
               </select>
             </label>
 
-            <label>
+            <label class="field">
               <span>Result folder</span>
               <input name="output_location" id="outputLocation" type="text" value="{{ default_result_location }}" autocomplete="off">
             </label>
           </div>
 
-          <label class="terms">
+          <label class="field terms">
             <span>Terminology hints</span>
             <textarea name="terminology" id="terminology" rows="3" placeholder="trust device, 3DS, saved card, safe address"></textarea>
           </label>
 
           <details class="advanced-settings" id="advancedSettings">
             <summary>
-              <span>Advanced settings</span>
+              <span class="summary-label">
+                <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"></path></svg>
+                Advanced settings
+              </span>
               <strong>whisper.cpp · large-v3 · transcribe</strong>
             </summary>
-            <div class="advanced-grid">
-              <div>
+            <div class="advanced-grid readout-grid">
+              <div class="readout">
                 <span>Engine</span>
                 <strong>whisper.cpp</strong>
               </div>
-              <div>
+              <div class="readout">
                 <span>Model</span>
                 <strong>large-v3</strong>
               </div>
-              <div>
+              <div class="readout">
                 <span>Task</span>
                 <strong>Transcribe</strong>
               </div>
-              <div>
+              <div class="readout">
                 <span>VAD</span>
                 <strong>{{ "Silero enabled" if vad_ready else "Unavailable" }}</strong>
               </div>
-              <div>
+              <div class="readout">
                 <span>Decoding</span>
                 <strong>beam 5 · best-of 5</strong>
               </div>
-              <div>
+              <div class="readout">
                 <span>Translation</span>
                 <strong>Off</strong>
               </div>
             </div>
           </details>
 
+          {% if not model_ready %}
+          <p class="setup-notice" id="setupNotice">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4"></path><path d="M12 17h.01"></path><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"></path></svg>
+            <span>Transcription model not installed yet. Run <code>work/provision_app_runtime.sh</code> from the project folder, then reopen the app.</span>
+          </p>
+          {% endif %}
           <button class="primary" type="submit" id="startButton" {% if not model_ready %}disabled{% endif %}>
             Start transcript
           </button>
@@ -152,23 +215,23 @@
 
         <section class="progress-panel" id="jobPanel" hidden>
           <div class="progress-head">
-            <div>
+            <div class="progress-headline">
               <h2 id="jobTitle">Queued</h2>
               <p id="jobMeta">Waiting</p>
             </div>
             <div class="spinner" id="spinner" aria-hidden="true"></div>
           </div>
           <div class="bar" aria-hidden="true"><span id="barFill"></span></div>
-          <div class="metrics" aria-live="polite">
-            <div>
+          <div class="metrics readout-grid" aria-live="polite">
+            <div class="readout">
               <span>Done</span>
               <strong id="percentDone">0%</strong>
             </div>
-            <div>
+            <div class="readout">
               <span>Remaining</span>
               <strong id="eta">Calculating</strong>
             </div>
-            <div>
+            <div class="readout">
               <span>Elapsed</span>
               <strong id="elapsed">0s</strong>
             </div>
@@ -178,20 +241,20 @@
             <button type="button" class="secondary" id="resumeButton" disabled>Continue</button>
             <button type="button" class="danger-button" id="terminateButton" disabled>Terminate</button>
           </div>
-          <div class="system-grid">
-            <div>
+          <div class="system-grid readout-grid">
+            <div class="readout">
               <span>CPU</span>
               <strong id="cpuUsage">Waiting</strong>
             </div>
-            <div>
+            <div class="readout">
               <span>RAM</span>
               <strong id="ramUsage">Waiting</strong>
             </div>
-            <div>
+            <div class="readout">
               <span>Load</span>
               <strong id="loadUsage">Waiting</strong>
             </div>
-            <div>
+            <div class="readout">
               <span>GPU</span>
               <strong id="gpuUsage">Metal ready</strong>
             </div>
