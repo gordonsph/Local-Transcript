@@ -122,6 +122,10 @@ The build relocates a portable `whisper.cpp` runtime into the bundle and package
 - Internet for the one-time model download
 - Microphone permission (only for live recording)
 
+## License
+
+[MIT](LICENSE) © Gordon Siu. Local Transcript bundles [whisper.cpp](https://github.com/ggml-org/whisper.cpp) and uses OpenAI's Whisper `large-v3` model under their respective licenses.
+
 ---
 
 <p align="center"><sub>Runs on <a href="https://github.com/ggml-org/whisper.cpp">whisper.cpp</a> with OpenAI's Whisper <code>large-v3</code> model · 100% on-device · made for Mac</sub></p>
