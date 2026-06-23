@@ -61,9 +61,51 @@ if FROZEN:
     WHISPER_CLI = APP_ROOT / "whisper-runtime" / "whisper-cli"
 else:
     WHISPER_CLI = WHISPER_ROOT / "build" / "bin" / "whisper-cli"
-MODEL_PATH = WHISPER_ROOT / "models" / "ggml-large-v3.bin"
+MODEL_PATH = WHISPER_ROOT / "models" / "ggml-large-v3.bin"  # default download target
 VAD_MODEL_PATH = WHISPER_ROOT / "models" / "ggml-silero-v6.2.0.bin"
 model_downloader.configure(MODEL_PATH, VAD_MODEL_PATH)
+
+# User settings (default language + optional model-path override) persist here.
+SETTINGS_PATH = ROOT / "settings.json"
+DEFAULT_LANGUAGE = "yue"
+
+
+def load_settings() -> dict:
+    try:
+        data = json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def save_settings(data: dict) -> None:
+    SETTINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    tmp = SETTINGS_PATH.with_name(SETTINGS_PATH.name + ".tmp")
+    tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    tmp.replace(SETTINGS_PATH)  # atomic write so a crash never leaves half a file
+
+
+def active_model_path() -> Path:
+    """The model to use: a validated user override, else the bundled default.
+
+    The override lets people point at an existing large-v3 model they already
+    have (e.g. shared with Buzz) instead of downloading a duplicate 2.9 GB copy.
+    Only a present, correctly-sized file is honored — otherwise we fall back to
+    the default so a stale/bad override can't wedge the app."""
+    override = load_settings().get("model_path")
+    if override:
+        candidate = Path(override).expanduser()
+        try:
+            if candidate.is_file() and candidate.stat().st_size == model_downloader.LARGE_V3_SIZE:
+                return candidate
+        except OSError:
+            pass
+    return MODEL_PATH
+
+
+def default_language() -> str:
+    lang = load_settings().get("default_language")
+    return lang if lang in LANGUAGES else DEFAULT_LANGUAGE
 
 # App Translocation: when a downloaded app is launched from Downloads (not moved
 # to /Applications), macOS runs it from a read-only randomized mount. The bundle
@@ -573,9 +615,11 @@ def append_log(job_id: str, line: str) -> None:
 
 def model_complete() -> bool:
     """The model is usable only if present AND the full expected size — a partial
-    rsync/copy of ggml-large-v3.bin would otherwise be loaded as a corrupt model."""
+    rsync/copy of ggml-large-v3.bin would otherwise be loaded as a corrupt model.
+    Honors a user-set model-path override via active_model_path()."""
+    path = active_model_path()
     try:
-        return MODEL_PATH.exists() and MODEL_PATH.stat().st_size == model_downloader.LARGE_V3_SIZE
+        return path.exists() and path.stat().st_size == model_downloader.LARGE_V3_SIZE
     except OSError:
         return False
 
@@ -588,7 +632,7 @@ def ensure_ready() -> None:
     missing = []
     for label, path in {
         "whisper.cpp binary": WHISPER_CLI,
-        "large-v3 model": MODEL_PATH,
+        "large-v3 model": active_model_path(),
     }.items():
         if not path.exists():
             missing.append(f"{label}: {path}")
@@ -819,7 +863,7 @@ def run_transcription(job_id: str, upload_path: Path, language: str, output_form
         cmd = [
             str(WHISPER_CLI),
             "-m",
-            str(MODEL_PATH),
+            str(active_model_path()),
             "-f",
             str(wav_path),
             "-l",
@@ -939,6 +983,7 @@ def run_transcription(job_id: str, upload_path: Path, language: str, output_form
 
 @app.get("/")
 def index():
+    settings = load_settings()
     return render_template(
         "index.html",
         languages=LANGUAGES,
@@ -946,6 +991,9 @@ def index():
         model_ready=app_ready(),
         vad_ready=VAD_MODEL_PATH.exists(),
         default_result_location=str(DEFAULT_RESULT_ROOT),
+        default_language=default_language(),
+        model_path=settings.get("model_path", ""),
+        default_model_path=str(MODEL_PATH),
     )
 
 
@@ -957,7 +1005,7 @@ def health():
         {
             "ready": model_ok and binary_ok,
             "whisper_cli": str(WHISPER_CLI),
-            "model": str(MODEL_PATH),
+            "model": str(active_model_path()),
             "vad": VAD_MODEL_PATH.exists(),
             "binary_ok": binary_ok,
             "model_ok": model_ok,
@@ -986,6 +1034,67 @@ def setup_status():
 def setup_cancel():
     model_downloader.cancel_download()
     return jsonify(model_downloader.get_state())
+
+
+@app.get("/api/settings")
+def get_settings():
+    settings = load_settings()
+    return jsonify(
+        {
+            "default_language": default_language(),
+            "model_path": settings.get("model_path", ""),
+            "default_model_path": str(MODEL_PATH),
+            "active_model_path": str(active_model_path()),
+            "model_ready": app_ready(),
+        }
+    )
+
+
+@app.post("/api/settings")
+def update_settings():
+    """Persist user settings. The model-path override is validated HERE (on apply)
+    so a bad path surfaces an error immediately instead of failing mid-transcription."""
+    data = request.get_json(silent=True) or request.form.to_dict()
+    settings = load_settings()
+
+    if "default_language" in data:
+        lang = (data.get("default_language") or "").strip()
+        if lang not in LANGUAGES:
+            return jsonify({"error": "Unknown language."}), 400
+        settings["default_language"] = lang
+
+    if "model_path" in data:
+        raw = (data.get("model_path") or "").strip()
+        if not raw:
+            settings.pop("model_path", None)  # cleared -> fall back to the default
+        else:
+            candidate = Path(raw).expanduser()
+            if not candidate.is_file():
+                return jsonify({"error": f"No file found at that path: {candidate}"}), 400
+            try:
+                size = candidate.stat().st_size
+            except OSError as exc:
+                return jsonify({"error": f"Can't read that file: {exc}"}), 400
+            if size != model_downloader.LARGE_V3_SIZE:
+                got = size / 1_000_000_000
+                return jsonify({
+                    "error": (
+                        "That file isn't the Whisper large-v3 model. Expected about "
+                        f"2.9 GB (ggml-large-v3.bin); this is {got:.1f} GB."
+                    )
+                }), 400
+            settings["model_path"] = str(candidate)
+
+    save_settings(settings)
+    return jsonify(
+        {
+            "ok": True,
+            "default_language": default_language(),
+            "model_path": settings.get("model_path", ""),
+            "active_model_path": str(active_model_path()),
+            "model_ready": app_ready(),
+        }
+    )
 
 
 @app.post("/api/jobs")

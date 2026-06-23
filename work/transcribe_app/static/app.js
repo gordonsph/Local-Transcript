@@ -46,6 +46,14 @@ const recordingTimer = document.getElementById("recordingTimer");
 const recordingStatus = document.getElementById("recordingStatus");
 const recordingTitle = document.getElementById("recordingTitle");
 const liveWaveform = document.getElementById("liveWaveform");
+const outputLocation = document.getElementById("outputLocation");
+const chooseFolderButton = document.getElementById("chooseFolderButton");
+const defaultLanguage = document.getElementById("defaultLanguage");
+const modelPath = document.getElementById("modelPath");
+const chooseModelButton = document.getElementById("chooseModelButton");
+const applyModelButton = document.getElementById("applyModelButton");
+const settingsStatus = document.getElementById("settingsStatus");
+const languageSelect = document.getElementById("language");
 
 let pollTimer = null;
 let currentJobId = null;
@@ -432,6 +440,90 @@ pauseButton.addEventListener("click", () => controlJob("pause"));
 resumeButton.addEventListener("click", () => controlJob("resume"));
 terminateButton.addEventListener("click", () => controlJob("terminate"));
 updatePrimaryAction();
+
+// ── Settings: default language, custom model path, native pickers ────────────
+function setSettingsStatus(text, kind) {
+  if (!settingsStatus) return;
+  settingsStatus.textContent = text || "";
+  settingsStatus.className = "source-state" + (kind ? ` ${kind}` : "");
+}
+
+// Native file/folder pickers exist only inside the .app (pywebview injects its
+// API, sometimes just after this script runs). Reveal the buttons when present.
+function revealNativePickers() {
+  const api = window.pywebview && window.pywebview.api;
+  if (api && api.choose_folder && chooseFolderButton) chooseFolderButton.hidden = false;
+  if (api && api.choose_model_file && chooseModelButton) chooseModelButton.hidden = false;
+}
+revealNativePickers();
+window.addEventListener("pywebviewready", revealNativePickers);
+
+if (chooseFolderButton) {
+  chooseFolderButton.addEventListener("click", async () => {
+    try {
+      const path = await window.pywebview.api.choose_folder();
+      if (path) outputLocation.value = path;
+    } catch (_) { /* dialog cancelled or unavailable */ }
+  });
+}
+if (chooseModelButton) {
+  chooseModelButton.addEventListener("click", async () => {
+    try {
+      const path = await window.pywebview.api.choose_model_file();
+      if (path) modelPath.value = path;
+    } catch (_) { /* dialog cancelled or unavailable */ }
+  });
+}
+
+if (defaultLanguage) {
+  defaultLanguage.addEventListener("change", async () => {
+    const value = defaultLanguage.value;
+    try {
+      const res = await fetch("/api/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ default_language: value }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Could not save.");
+      if (languageSelect) languageSelect.value = value;  // keep this transcript in sync
+      setSettingsStatus("Default language saved.", "ok");
+    } catch (err) {
+      setSettingsStatus(err.message || "Could not save the default language.", "error");
+    }
+  });
+}
+
+if (applyModelButton) {
+  applyModelButton.addEventListener("click", async () => {
+    applyModelButton.disabled = true;
+    setSettingsStatus("Checking model…", "");
+    try {
+      const res = await fetch("/api/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model_path: modelPath.value.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Could not apply.");
+      // If the override made the model ready (or cleared it), reload so the
+      // download panel / Start button reflect the new state.
+      if (data.model_ready) {
+        setSettingsStatus("Model found. Reloading…", "ok");
+        window.location.reload();
+        return;
+      }
+      setSettingsStatus(
+        modelPath.value.trim() ? "Saved, but the model still isn't ready." : "Cleared — using the default location.",
+        "ok"
+      );
+    } catch (err) {
+      setSettingsStatus(err.message || "Could not apply the model path.", "error");
+    } finally {
+      applyModelButton.disabled = false;
+    }
+  });
+}
 
 // ── App Translocation warning ────────────────────────────────────────────────
 // If macOS is running a downloaded copy from a temporary mount, the bundled

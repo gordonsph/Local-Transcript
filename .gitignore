@@ -35,6 +35,9 @@ work/transcribe_app/dist/
 # local build; machine-specific Mach-O, not source).
 work/transcribe_app/whisper-runtime/
 
+# User settings written at runtime (repo root in a source checkout).
+settings.json
+
 # Local brainstorming companion artifacts
 .superpowers/
 

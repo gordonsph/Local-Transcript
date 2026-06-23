@@ -133,7 +133,7 @@
                 <span class="rvalue">
                   <select class="macsel" name="language" id="language">
                     {% for code, label in languages.items() %}
-                      <option value="{{ code }}" {% if code == "yue" %}selected{% endif %}>{{ label }}</option>
+                      <option value="{{ code }}" {% if code == default_language %}selected{% endif %}>{{ label }}</option>
                     {% endfor %}
                   </select>
                 </span>
@@ -152,8 +152,9 @@
               <label class="row" for="outputLocation">
                 <svg class="ricon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
                 <span class="rlabel">Result folder</span>
-                <span class="rvalue rvalue-grow">
+                <span class="rvalue rvalue-grow field-with-button">
                   <input class="rowinput" name="output_location" id="outputLocation" type="text" value="{{ default_result_location }}" autocomplete="off">
+                  <button type="button" class="inline-choose" id="chooseFolderButton" hidden>Choose…</button>
                 </span>
               </label>
               <label class="row row-stack" for="terminology">
@@ -164,6 +165,38 @@
                 </span>
               </label>
             </div>
+
+            <details class="advanced-settings" id="settingsPanel">
+              <summary>
+                <span class="summary-label">
+                  <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 6 15 12 9 18"></polyline></svg>
+                  Settings
+                </span>
+              </summary>
+              <div class="card">
+                <label class="row" for="defaultLanguage">
+                  <svg class="ricon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18"></path><path d="M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18z"></path></svg>
+                  <span class="rlabel">Default language<small>Pre-selected for new transcripts</small></span>
+                  <span class="rvalue">
+                    <select class="macsel" id="defaultLanguage">
+                      {% for code, label in languages.items() %}
+                        <option value="{{ code }}" {% if code == default_language %}selected{% endif %}>{{ label }}</option>
+                      {% endfor %}
+                    </select>
+                  </span>
+                </label>
+                <label class="row row-stack" for="modelPath">
+                  <svg class="ricon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"></rect><rect x="9" y="9" width="6" height="6"></rect><path d="M9 1v3M15 1v3M9 20v3M15 20v3M1 9h3M1 15h3M20 9h3M20 15h3"></path></svg>
+                  <span class="rlabel">Model location<small>Point to an existing large-v3 model to skip the download</small></span>
+                  <span class="rvalue rvalue-grow field-with-button">
+                    <input class="rowinput" id="modelPath" type="text" placeholder="{{ default_model_path }}" value="{{ model_path }}" autocomplete="off" spellcheck="false">
+                    <button type="button" class="inline-choose" id="chooseModelButton" hidden>Choose…</button>
+                    <button type="button" class="inline-choose" id="applyModelButton">Apply</button>
+                  </span>
+                </label>
+              </div>
+              <p class="source-state" id="settingsStatus" role="status" aria-live="polite"></p>
+            </details>
 
             <details class="advanced-settings" id="advancedSettings">
               <summary>

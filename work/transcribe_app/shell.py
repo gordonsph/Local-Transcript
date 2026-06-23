@@ -67,6 +67,32 @@ HEALTH_PATH = "/api/health"
 STARTUP_TIMEOUT_SECONDS = 15
 
 
+class NativeApi:
+    """Exposed to the web UI as ``window.pywebview.api.*`` so the page can open
+    native macOS pickers — a folder dialog for the result folder and a file
+    dialog for a custom model path. Only present in the .app shell; in a plain
+    browser these calls are absent and the UI falls back to typing a path."""
+
+    def __init__(self) -> None:
+        self.window = None
+
+    def choose_folder(self):
+        if self.window is None:
+            return None
+        result = self.window.create_file_dialog(webview.FOLDER_DIALOG)
+        return result[0] if result else None
+
+    def choose_model_file(self):
+        if self.window is None:
+            return None
+        result = self.window.create_file_dialog(
+            webview.OPEN_DIALOG,
+            allow_multiple=False,
+            file_types=("Whisper model (*.bin)", "All files (*.*)"),
+        )
+        return result[0] if result else None
+
+
 def _declassify_bundle() -> None:
     """Strip the Gatekeeper quarantine flag from our own .app on launch.
 
@@ -161,6 +187,7 @@ def main() -> None:
     # Real macOS "Liquid Glass": vibrancy puts an NSVisualEffectView behind the
     # webview, and transparent lets it show through. On load we add body.vibrancy
     # so the CSS drops its faux-desktop fallback and reveals the system material.
+    native_api = NativeApi()
     window = webview.create_window(
         WINDOW_TITLE,
         url=server.base_url,
@@ -170,7 +197,9 @@ def main() -> None:
         vibrancy=True,
         transparent=True,
         background_color="#1A1E20",
+        js_api=native_api,
     )
+    native_api.window = window
     window.events.closed += on_close
 
     def on_loaded() -> None:

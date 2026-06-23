@@ -302,6 +302,21 @@ h1, h2, p { margin: 0; }
 .rvalue { font-size: 13px; color: var(--label-2); display: flex; align-items: center; gap: 6px; }
 .rvalue-grow { flex: 1.4; min-width: 0; }
 
+/* Text field paired with a native picker / apply button (result folder, model path) */
+.field-with-button { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.field-with-button .rowinput { flex: 1 1 170px; min-width: 0; width: auto; }
+.inline-choose {
+  flex: none; font-size: 12px; font-weight: 500; padding: 6px 12px;
+  border: 0.5px solid var(--sep-strong); border-radius: 6px;
+  background: rgba(120, 120, 128, 0.12); color: var(--label);
+  transition: background var(--dur-fast) var(--ease);
+}
+.inline-choose:hover { background: rgba(120, 120, 128, 0.2); }
+.inline-choose:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; box-shadow: 0 0 0 4px var(--focus-halo); }
+#settingsStatus { margin-top: 9px; }
+#settingsStatus.ok { color: var(--accent-deep); }
+#settingsStatus.error { color: var(--danger); }
+
 select.macsel {
   font-size: 13px; color: var(--label);
   border: 0.5px solid var(--sep-strong); border-radius: 6px; background: var(--field);
