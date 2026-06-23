@@ -1,0 +1,18 @@
+# Local Transcript
+
+> Free, open-source macOS app that transcribes audio, video, URLs, and live microphone recordings entirely on-device. It runs OpenAI's Whisper large-v3 model via whisper.cpp with Apple Metal GPU acceleration, so audio never leaves the Mac. Built for Cantonese and Chinese; also supports English, Mandarin, Japanese, Korean, French, Spanish, and auto-detect. Apple Silicon (M1+), macOS 11+. No account, no subscription, no telemetry.
+
+## Key facts
+- Platform: macOS 11+ on Apple Silicon (M1 or later). Intel Macs not supported.
+- Price: free and open-source. No account or subscription.
+- Privacy: 100% on-device transcription. Only network request is a one-time 2.9 GB model download from Hugging Face.
+- Engine: whisper.cpp + Whisper large-v3, Apple Metal GPU acceleration.
+- Sources: audio/video file, media URL, live microphone recording.
+- Output formats: Markdown, SRT, VTT, CSV, JSON, plain text.
+- Distribution: ad-hoc signed (not notarized); approve once via System Settings → Privacy & Security → Open Anyway.
+
+## Links
+- [Download (latest release)](https://github.com/gordonsph/Local-Transcript/releases/latest): the macOS .dmg.
+- [README](https://github.com/gordonsph/Local-Transcript/blob/main/README.md): overview, features, comparison, and FAQ.
+- [Install guide](https://github.com/gordonsph/Local-Transcript/blob/main/docs/INSTALL.md): step-by-step install and first-run model download.
+- [whisper.cpp](https://github.com/ggml-org/whisper.cpp): the underlying inference engine.
