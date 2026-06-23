@@ -1,6 +1,6 @@
 # Local Transcript
 
-> Free, open-source macOS app that transcribes audio, video, URLs, and live microphone recordings entirely on-device. It runs OpenAI's Whisper large-v3 model via whisper.cpp with Apple Metal GPU acceleration, so audio never leaves the Mac. Built for Cantonese and Chinese; also supports English, Mandarin, Japanese, Korean, French, Spanish, and auto-detect. Apple Silicon (M1+), macOS 11+. No account, no subscription, no telemetry.
+> Free, open-source macOS app that transcribes audio, video, URLs, and live microphone recordings entirely on-device. It runs OpenAI's Whisper large-v3 model via whisper.cpp with Apple Metal GPU acceleration, so audio never leaves the Mac. Supports Cantonese, Mandarin/Chinese, English, Japanese, Korean, French, Spanish, and auto-detect, with especially strong Cantonese and Chinese results. Apple Silicon (M1+), macOS 11+. No account, no subscription, no telemetry.
 
 ## Key facts
 - Platform: macOS 11+ on Apple Silicon (M1 or later). Intel Macs not supported.

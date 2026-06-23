@@ -27,14 +27,14 @@ Turn audio, video, URLs, or live recordings into accurate text — fully offline
 
 ## What is Local Transcript?
 
-**Local Transcript is a free, open-source macOS app that transcribes audio and video entirely on your Mac.** It runs OpenAI's Whisper `large-v3` model on-device through `whisper.cpp` with Apple Metal GPU acceleration — so your recordings are never uploaded to a server. It's built for Cantonese and Chinese but works across English, Mandarin, Japanese, Korean, French, and Spanish.
+**Local Transcript is a free, open-source macOS app that transcribes audio and video entirely on your Mac.** It runs OpenAI's Whisper `large-v3` model on-device through `whisper.cpp` with Apple Metal GPU acceleration — so your recordings are never uploaded to a server. It transcribes Cantonese, Mandarin/Chinese, English, Japanese, Korean, French, and Spanish (or auto-detects), with especially strong Cantonese and Chinese results.
 
 ## Why Local Transcript
 
 - **🔒 Private by design.** Transcription runs locally. The only time it touches the network is a one-time model download.
 - **💸 Free, no subscription.** No account, no per-minute fees, no telemetry.
 - **🎯 Cloud-grade accuracy.** The full Whisper `large-v3` model — not a cut-down version — accelerated by Apple Metal.
-- **🗣️ Great at Cantonese & Chinese.** Built for them first, where most tools fall short.
+- **🗣️ Strong Cantonese & Chinese** — where many tools fall short — plus English, Mandarin, Japanese, Korean, French, and Spanish.
 - **📄 Six export formats.** Markdown, SRT, VTT, CSV, JSON, and plain text — subtitles included.
 - **🎙️ Three sources.** A file, a media URL, or a live microphone recording.
 
