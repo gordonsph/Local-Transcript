@@ -46,9 +46,6 @@ const recordingTimer = document.getElementById("recordingTimer");
 const recordingStatus = document.getElementById("recordingStatus");
 const recordingTitle = document.getElementById("recordingTitle");
 const liveWaveform = document.getElementById("liveWaveform");
-const installButton = document.getElementById("installButton");
-const installDialog = document.getElementById("installDialog");
-const browserInstallButton = document.getElementById("browserInstallButton");
 
 let pollTimer = null;
 let currentJobId = null;
@@ -61,14 +58,13 @@ let recordedName = "";
 let recordedChunks = [];
 let recordingStartedAt = 0;
 let recordingTimerId = null;
-let deferredInstallPrompt = null;
 let pollFailures = 0;
 let modelReady = !startButton.disabled;
 let setupPollTimer = null;
 
 function setFileLabel() {
   const file = audioInput.files[0];
-  fileName.textContent = file ? file.name : "Choose audio";
+  fileName.textContent = file ? file.name : "Choose a file";
   updatePrimaryAction();
 }
 
@@ -85,8 +81,8 @@ function formatClock(seconds) {
 }
 
 function activeSourceLabel() {
-  if (currentSource === "url") return "Import URL";
-  if (currentSource === "live") return recordedBlob ? "Save & transcribe recording" : "Record first";
+  if (currentSource === "url") return "Transcribe URL";
+  if (currentSource === "live") return recordedBlob ? "Transcribe recording" : "Record audio";
   return "Start transcript";
 }
 
@@ -97,7 +93,7 @@ function sourceReady() {
 }
 
 function updatePrimaryAction() {
-  startButton.textContent = isSubmitting ? "Running..." : activeSourceLabel();
+  startButton.textContent = isSubmitting ? "Transcribing..." : activeSourceLabel();
   startButton.disabled = isSubmitting || !modelReady || !sourceReady();
   sourceButtons.forEach((button) => {
     button.disabled = isSubmitting;
@@ -195,7 +191,7 @@ async function startRecording() {
       stopMediaStream();
       stopRecordingTimer();
       recordingTitle.textContent = recordedName;
-      setRecordingState("ready", `Recorded ${formatClock((Date.now() - recordingStartedAt) / 1000)}. Source audio will be saved with the job.`);
+      setRecordingState("ready", `Recorded ${formatClock((Date.now() - recordingStartedAt) / 1000)}. Audio saved with results.`);
       updatePrimaryAction();
     });
     recordingStartedAt = Date.now();
@@ -218,7 +214,7 @@ async function startRecording() {
 function stopRecording() {
   if (mediaRecorder && mediaRecorder.state !== "inactive") {
     mediaRecorder.stop();
-    setRecordingState("saving", "Saving recording");
+    setRecordingState("saving", "Saving");
   }
   updatePrimaryAction();
 }
@@ -256,7 +252,7 @@ function renderJob(job) {
   const formatLabel = job.output_format_label || "Output pending";
   jobMeta.textContent = `${sourceLabel} · ${languageLabel} · ${formatLabel}`;
   savedPath.textContent = job.output_location ? `Saved to ${job.output_location}` : "";
-  sourcePath.textContent = job.source_path ? `Source stored at ${job.source_path}` : "";
+  sourcePath.textContent = job.source_path ? `Source: ${job.source_path}` : "";
   const progress = Number(job.progress || 0);
   percentDone.textContent = `${progress.toFixed(0)}%`;
   eta.textContent = job.eta_label || (job.status === "done" ? "0s" : "Calculating");
@@ -380,7 +376,7 @@ form.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (!sourceReady()) return;
   if (currentSource === "live" && (!recordedBlob || recordedBlob.size === 0)) {
-    setRecordingState("error", "That recording is empty — record again.");
+    setRecordingState("error", "Recording is empty.");
     return;
   }
 
@@ -427,7 +423,7 @@ form.addEventListener("submit", async (event) => {
     recordedBlob = null;
     recordedName = "";
     recordedChunks = [];
-    setRecordingState("idle", "Ready when you are.");
+    setRecordingState("idle", "Ready to record.");
     updatePrimaryAction();
   }
 });
@@ -435,37 +431,6 @@ form.addEventListener("submit", async (event) => {
 pauseButton.addEventListener("click", () => controlJob("pause"));
 resumeButton.addEventListener("click", () => controlJob("resume"));
 terminateButton.addEventListener("click", () => controlJob("terminate"));
-installButton.addEventListener("click", () => {
-  if (installDialog.showModal) {
-    installDialog.showModal();
-  }
-});
-// Inside the native .app shell there is no browser to "install" into, so hide
-// the PWA add-to-dock button. pywebview exposes window.pywebview; it may be
-// injected just after this script runs, so also re-check on pywebviewready.
-function hideInstallButtonInNativeShell() {
-  if (typeof window.pywebview !== "undefined") {
-    installButton.hidden = true;
-  }
-}
-hideInstallButtonInNativeShell();
-window.addEventListener("pywebviewready", hideInstallButtonInNativeShell);
-browserInstallButton.addEventListener("click", async () => {
-  if (!deferredInstallPrompt) return;
-  try {
-    deferredInstallPrompt.prompt();
-    await deferredInstallPrompt.userChoice;
-  } catch (error) {
-    // Ignore — the prompt was dismissed or is unavailable.
-  }
-  deferredInstallPrompt = null;
-  browserInstallButton.hidden = true;
-});
-window.addEventListener("beforeinstallprompt", (event) => {
-  event.preventDefault();
-  deferredInstallPrompt = event;
-  browserInstallButton.hidden = false;
-});
 updatePrimaryAction();
 
 // ── App Translocation warning ────────────────────────────────────────────────
@@ -543,10 +508,10 @@ if (setupPanel) {
     setupPollTimer = null;
     showDownloading(false);
     const byKind = {
-      offline: "Couldn’t reach the download server. Check your internet connection, then retry.",
-      disk_full: "Not enough free disk space — free up about 3 GB, then retry.",
-      checksum: "The download was corrupted. Retry to start it again from scratch.",
-      http: "The download server returned an error. Please retry in a moment.",
+      offline: "No internet connection. Check your connection and try again.",
+      disk_full: "Not enough disk space. Free up 3 GB and try again.",
+      checksum: "Download was corrupted. Try again.",
+      http: "Download server error. Try again.",
     };
     const message = byKind[state.error_kind] || state.error || "Download failed.";
     setupMessage.textContent = "";
@@ -555,7 +520,7 @@ if (setupPanel) {
     span.textContent = message;  // textContent, never innerHTML, for server text
     setupMessage.appendChild(span);
     downloadModelButton.hidden = false;
-    downloadModelButton.textContent = "Retry download";
+    downloadModelButton.textContent = "Retry";
   }
 
   async function pollSetup() {
@@ -572,7 +537,7 @@ if (setupPanel) {
       clearInterval(setupPollTimer);
       setupPollTimer = null;
       showDownloading(false);
-      downloadModelButton.textContent = "Download model (2.9 GB)";
+      downloadModelButton.textContent = "Download (2.9 GB)";
       return;
     }
     renderSetup(state);
@@ -585,7 +550,7 @@ if (setupPanel) {
   }
 
   async function startModelDownload() {
-    downloadModelButton.textContent = "Download model (2.9 GB)";
+    downloadModelButton.textContent = "Download (2.9 GB)";
     beginPolling();
     try {
       const response = await fetch("/api/setup/start", { method: "POST" });

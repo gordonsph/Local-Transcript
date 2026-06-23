@@ -55,7 +55,6 @@
           </nav>
 
           <div class="side-foot">
-            <button type="button" class="install-button" id="installButton">Install app</button>
             <div class="status-pill" id="statusPill" data-state="{{ 'ready' if model_ready else 'pending' }}">
               <span class="status-dot" aria-hidden="true"></span>
               <span id="systemStatus">{{ "Ready" if model_ready else "Model pending" }}</span>
@@ -77,7 +76,7 @@
           <div class="scroll">
             <div class="move-banner" id="moveBanner" role="alert" hidden>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4"></path><path d="M12 17h.01"></path><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"></path></svg>
-              <span>Local Transcript is running from a temporary location. Move it to your <strong>Applications</strong> folder and reopen — it can’t run from the Downloads folder.</span>
+              <span>Move Local Transcript to your <strong>Applications</strong> folder and reopen. It can’t run from Downloads.</span>
             </div>
 
             <!-- Source detail -->
@@ -89,8 +88,8 @@
                   <span class="drop-icon" aria-hidden="true">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4"></path><path d="m7 9 5-5 5 5"></path><path d="M20 16.5A4.5 4.5 0 0 0 17 8.2"></path><path d="M5 20h14a2 2 0 0 0 2-2"></path><path d="M5 20a2 2 0 0 1-2-2 4.5 4.5 0 0 1 3.2-6.7"></path></svg>
                   </span>
-                  <span class="drop-title" id="fileName">Choose audio</span>
-                  <span class="drop-sub">Drag a file here, or click to browse <span class="drop-formats">m4a · mp3 · wav · mp4 · mov · webm</span></span>
+                  <span class="drop-title" id="fileName">Choose a file</span>
+                  <span class="drop-sub">Drag or click to select <span class="drop-formats">m4a · mp3 · wav · mp4 · mov · webm</span></span>
                 </label>
               </section>
 
@@ -99,7 +98,7 @@
                   <span>Media URL</span>
                   <input name="source_url" id="sourceUrl" type="url" placeholder="https://example.com/audio.mp3" autocomplete="url">
                 </label>
-                <p class="source-state">The media file is downloaded into the local job folder before transcription starts.</p>
+                <p class="source-state">Downloaded to the job folder before transcription.</p>
               </section>
 
               <section class="source-panel live-panel" id="livePanel" data-panel="live" hidden>
@@ -121,7 +120,7 @@
                   <span></span><span></span><span></span><span></span><span></span><span></span>
                   <span></span><span></span><span></span><span></span><span></span><span></span>
                 </div>
-                <p class="source-state" id="recordingStatus">Ready when you are.</p>
+                <p class="source-state" id="recordingStatus">Ready to record.</p>
               </section>
             </div>
 
@@ -159,7 +158,7 @@
               </label>
               <label class="row row-stack" for="terminology">
                 <svg class="ricon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h10M7 12h10M7 17h6"></path></svg>
-                <span class="rlabel">Terminology hints<small>Names, jargon &amp; acronyms to bias decoding</small></span>
+                <span class="rlabel">Terminology hints<small>Names, jargon, acronyms</small></span>
                 <span class="rvalue rvalue-grow">
                   <textarea class="rowinput" name="terminology" id="terminology" rows="2" placeholder="trust device, 3DS, saved card, safe address"></textarea>
                 </span>
@@ -192,8 +191,8 @@
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
                 </span>
                 <div class="setup-copy">
-                  <strong>Download the transcription model</strong>
-                  <span id="setupMessage">Local Transcript runs Whisper large-v3 entirely on your Mac. The model is a one-time 2.9 GB download — after this, everything works offline, forever.</span>
+                  <strong>Download model</strong>
+                  <span id="setupMessage">Downloads Whisper large-v3 (2.9 GB, one time). Transcription then runs fully on this Mac, no internet needed.</span>
                 </div>
               </div>
               <div class="bar" id="setupBar" aria-hidden="true" hidden><span id="setupBarFill"></span></div>
@@ -204,11 +203,11 @@
                 <div class="readout"><span>Remaining</span><strong id="setupEta">—</strong></div>
               </div>
               <div class="setup-meta">
-                <span class="metatag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>Checksum-verified</span>
+                <span class="metatag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>Verified</span>
                 <span class="metatag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>Stays on device</span>
               </div>
               <div class="setup-actions">
-                <button type="button" class="primary" id="downloadModelButton">Download model (2.9 GB)</button>
+                <button type="button" class="primary" id="downloadModelButton">Download (2.9 GB)</button>
                 <button type="button" class="secondary" id="cancelDownloadButton" hidden>Cancel</button>
               </div>
             </section>
@@ -249,7 +248,7 @@
 
           <!-- Primary action -->
           <div class="actionbar">
-            <span class="hint">Nothing leaves this Mac.</span>
+            <span class="hint">Stays on this Mac.</span>
             <button class="primary" type="submit" id="startButton" {% if not model_ready %}disabled{% endif %}>
               Start transcript
             </button>
@@ -258,26 +257,6 @@
       </form>
     </main>
 
-    <dialog class="install-dialog" id="installDialog">
-      <form method="dialog">
-        <header>
-          <h2>Install Local Transcript</h2>
-          <button type="submit" class="dialog-close" aria-label="Close">Close</button>
-        </header>
-      </form>
-      <div class="install-options">
-        <section>
-          <h3>Safari</h3>
-          <p>Open this address in Safari, then use File or Share, Add to Dock, Add.</p>
-        </section>
-        <section>
-          <h3>Chrome</h3>
-          <p>Open this address in Chrome, then use More, Cast, save, and share, Install page as app.</p>
-          <button type="button" class="secondary" id="browserInstallButton" hidden>Install with browser</button>
-        </section>
-      </div>
-      <p class="install-url">http://127.0.0.1:5057/</p>
-    </dialog>
     <script src="{{ url_for('static', filename='app.js') }}"></script>
   </body>
 </html>

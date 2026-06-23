@@ -50,6 +50,31 @@ class ThemeCssTests(unittest.TestCase):
         self.assertIn("var(--label-2)", body, ".side-section header must use --label-2")
         self.assertNotIn("var(--label-3)", body, ".side-section must not use icon-only --label-3")
 
+    def test_section_headers_are_title_case_not_all_caps(self):
+        # Apple Liquid Glass HIG: section headers use title-style capitalization,
+        # not all-caps. .side-section and .readout span must not force uppercase.
+        css = CSS.read_text(encoding="utf-8")
+        for selector in (r"\.side-section", r"\.readout span"):
+            rule = re.search(rf"{selector}\s*{{(?P<body>.*?)}}", css, re.S)
+            self.assertIsNotNone(rule, f"{selector} must be styled")
+            self.assertNotIn("text-transform: uppercase", rule.group("body"),
+                             f"{selector} must use title-case, not all-caps (Apple HIG)")
+
+    def test_no_obsolete_pwa_install_ui(self):
+        # The PWA install button + dialog are dead in a native .app; they must be
+        # gone from the template AND their JS must not reference missing elements.
+        html = TEMPLATE.read_text(encoding="utf-8")
+        js = (ROOT / "work" / "transcribe_app" / "static" / "app.js").read_text(encoding="utf-8")
+        for token in ('id="installButton"', 'id="installDialog"', "127.0.0.1:5057"):
+            self.assertNotIn(token, html, f"obsolete install UI ({token}) must be removed")
+        for token in ("installButton", "installDialog", "browserInstallButton"):
+            self.assertNotIn(token, js, f"dead install reference ({token}) must be removed from app.js")
+
+    def test_reduced_transparency_fallback_exists(self):
+        # Apple HIG accessibility: provide an opaque fallback for Reduce Transparency.
+        css = CSS.read_text(encoding="utf-8")
+        self.assertIn("prefers-reduced-transparency: reduce", css)
+
     def test_toolbar_status_badge_is_wired_for_live_updates(self):
         # The toolbar badge must have an id + data-state (so app.js keeps it in
         # sync with the sidebar pill) and the dot must react to data-state.

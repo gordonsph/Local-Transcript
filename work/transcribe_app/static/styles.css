@@ -38,7 +38,6 @@
 
   --code-bg: #14171c;
   --code-ink: rgba(255, 255, 255, 0.86);
-  --backdrop: rgba(14, 23, 38, 0.4);
 
   --r-window: 13px;
   --r-card: 11px;
@@ -90,7 +89,6 @@
 
     --code-bg: #0a0d0c;
     --code-ink: rgba(255, 255, 255, 0.88);
-    --backdrop: rgba(0, 0, 0, 0.6);
 
     --desk: radial-gradient(120% 90% at 16% 6%, #1b3a5a 0%, rgba(27,58,90,0) 55%),
             radial-gradient(120% 100% at 88% 16%, #3a2b56 0%, rgba(58,43,86,0) 50%),
@@ -171,10 +169,10 @@ h1, h2, p { margin: 0; }
 .meta { margin-top: 1px; font-size: 11.5px; color: var(--label-2); }
 
 .side-section {
-  /* Readable group header on translucent sidebar glass — must use --label-2,
-     not the icon-only --label-3 (which fails WCAG AA over the wallpaper). */
+  /* Title-case section header (Apple HIG: section headers are no longer all-caps).
+     --label-2, not icon-only --label-3, to stay AA on the translucent sidebar. */
   font-size: 11px; font-weight: 600; color: var(--label-2);
-  text-transform: uppercase; letter-spacing: 0.05em;
+  letter-spacing: -0.005em;
   padding: 12px 18px 5px;
 }
 
@@ -204,12 +202,6 @@ h1, h2, p { margin: 0; }
 .source-tab:disabled:hover { background: transparent; }
 
 .side-foot { margin-top: auto; padding: 12px 16px 0; display: grid; gap: 9px; }
-.install-button {
-  width: 100%; min-height: 30px; font-size: 12.5px; font-weight: 500;
-  border: 0.5px solid var(--sep-strong); border-radius: 7px;
-  background: rgba(120, 120, 128, 0.12); color: var(--label);
-}
-.install-button:hover { background: rgba(120, 120, 128, 0.2); }
 .status-pill {
   display: inline-flex; align-items: center; gap: 7px;
   font-size: 12px; color: var(--label-2);
@@ -299,7 +291,7 @@ h1, h2, p { margin: 0; }
 }
 .row {
   display: flex; align-items: center; gap: 12px;
-  padding: 10px 15px; min-height: 46px;
+  padding: 12px 15px; min-height: 48px;
   border-bottom: 0.5px solid var(--sep);
 }
 .row:last-child { border-bottom: none; }
@@ -332,7 +324,7 @@ select.macsel:hover, .rowinput:hover { border-color: var(--accent); }
 :focus-visible { outline: none; }
 .source-tab:focus-visible, select.macsel:focus-visible, .rowinput:focus-visible,
 .primary:focus-visible, .secondary:focus-visible, .danger-button:focus-visible,
-.record-button:focus-visible, .install-button:focus-visible, .downloads a:focus-visible,
+.record-button:focus-visible, .downloads a:focus-visible,
 .dropzone:focus-within {
   outline: 2px solid var(--focus); outline-offset: 2px;
   border-color: var(--focus);
@@ -393,7 +385,7 @@ select.macsel:hover, .rowinput:hover { border-color: var(--accent); }
   border-radius: var(--r-card); background: var(--sep); overflow: hidden; margin-bottom: 16px;
 }
 .readout { background: var(--card); padding: 11px 14px; min-width: 0; }
-.readout span { display: block; margin-bottom: 4px; font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--label-2); }
+.readout span { display: block; margin-bottom: 4px; font-size: 11px; font-weight: 600; letter-spacing: -0.005em; color: var(--label-2); }
 .readout strong { display: block; font-size: 17px; font-weight: 600; letter-spacing: -0.01em; overflow-wrap: anywhere; }
 
 /* ── Move-to-Applications banner ── */
@@ -478,7 +470,8 @@ pre#log:empty { display: none; }
 .downloads a:hover { border-color: var(--accent); background: var(--accent-tint); color: var(--accent-deep); }
 .error { color: var(--danger); }
 
-/* ── Buttons ── */
+/* ── Buttons ──
+   (.dialog-close removed with the obsolete PWA install dialog) */
 .primary {
   min-height: 38px; padding: 0 22px; border: none; border-radius: 9px;
   background: var(--accent); color: var(--on-accent);
@@ -489,14 +482,14 @@ pre#log:empty { display: none; }
 .primary:hover { background: var(--accent-deep); }
 .primary:active { transform: scale(0.985); }
 .primary:disabled { background: rgba(120, 120, 128, 0.22); color: var(--label-3); box-shadow: none; cursor: not-allowed; }
-.secondary, .danger-button, .dialog-close {
+.secondary, .danger-button {
   min-height: 38px; padding: 0 16px; border-radius: 9px; font-size: 13.5px; font-weight: 500;
   transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease), transform var(--dur-fast) var(--ease);
 }
-.secondary, .dialog-close {
+.secondary {
   border: 0.5px solid var(--sep-strong); background: rgba(120, 120, 128, 0.12); color: var(--label);
 }
-.secondary:hover, .dialog-close:hover { background: rgba(120, 120, 128, 0.2); }
+.secondary:hover { background: rgba(120, 120, 128, 0.2); }
 .secondary:active, .danger-button:active { transform: scale(0.985); }
 .danger-button { border: 0.5px solid var(--danger-line); background: var(--danger-bg); color: var(--danger); }
 .danger-button:hover { border-color: var(--danger); }
@@ -510,25 +503,22 @@ pre#log:empty { display: none; }
 }
 .actionbar .hint { font-size: 12px; color: var(--label-2); }
 
-/* ── Install dialog ── */
-.install-dialog {
-  width: min(540px, calc(100vw - 36px)); padding: 0; border: 0.5px solid var(--sep);
-  border-radius: 16px; background: var(--card); color: var(--label);
-  box-shadow: 0 22px 60px -12px rgba(0, 0, 0, 0.4);
-}
-.install-dialog::backdrop { background: var(--backdrop); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
-.install-dialog header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 18px; border-bottom: 0.5px solid var(--sep); }
-.install-options { display: grid; gap: 12px; padding: 16px 18px; }
-.install-options section { padding: 14px; border: 0.5px solid var(--sep); border-radius: var(--r-card); background: var(--inset); }
-.install-options h3 { margin: 0 0 6px; font-size: 15px; }
-.install-options p, .install-url { color: var(--label-2); font-size: 13px; overflow-wrap: anywhere; }
-.install-url { padding: 0 18px 18px; font-family: var(--mono); }
-
 /* ── Motion ── */
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes pulse-wave { from { transform: scaleY(0.5); } to { transform: scaleY(1.18); } }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; transition-duration: 1ms !important; }
+}
+
+/* Reduce Transparency (Apple HIG accessibility): drop the glass blur and make
+   the chrome/content opaque. The panels read their backgrounds from these
+   variables, so redefining them here makes every surface opaque at once. */
+@media (prefers-reduced-transparency: reduce) {
+  :root { --sidebar: rgb(246, 247, 249); --content: rgb(255, 255, 255); --toolbar: rgb(255, 255, 255); }
+  .sidebar, .main, .toolbar, .actionbar { -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+@media (prefers-reduced-transparency: reduce) and (prefers-color-scheme: dark) {
+  :root { --sidebar: rgb(28, 32, 34); --content: rgb(26, 30, 32); --toolbar: rgb(26, 30, 32); }
 }
 
 /* ── Responsive (narrow window) ── */
@@ -540,7 +530,7 @@ pre#log:empty { display: none; }
   .source-rail { flex-direction: row; flex: 1; padding: 0; }
   .source-tab .tab-text small { display: none; }
   .side-foot { margin: 0; padding: 0; grid-auto-flow: column; align-items: center; }
-  .privacy-chip, .install-button { display: none; }
+  .privacy-chip { display: none; }
   .setup-stats.readout-grid, .system-grid.readout-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .controls { grid-template-columns: 1fr; }
   .setup-actions { flex-direction: column; }
