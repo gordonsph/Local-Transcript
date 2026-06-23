@@ -28,7 +28,7 @@ Open `Local Transcript.dmg` and **drag the app onto the Applications shortcut.**
 The first time it opens, Local Transcript will offer to download the Whisper large-v3
 model — a **one-time 2.9 GB download** stored on your Mac. Click **Download model**
 and wait for it to finish (it resumes if interrupted and is checksum-verified). After
-that, transcription works fully offline, forever.
+that, transcription runs fully on your Mac with no internet needed.
 
 ## Using it
 Choose a **File**, paste a **URL**, or record **Live** from the microphone; pick a
